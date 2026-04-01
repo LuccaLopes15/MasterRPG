@@ -1,0 +1,96 @@
+@page "/dashboard"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Services
+@inject CampaignService CampaignService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - T20Master</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Minhas Campanhas</h3>
+    <a href="/campaign/create" class="btn btn-primary">Nova Campanha</a>
+</div>
+
+@if (campaigns == null)
+{
+    <p>Carregando...</p>
+}
+else if (!campaigns.Any())
+{
+    <div class="alert alert-info">
+        Voce ainda nao participa de nenhuma campanha.
+        <a href="/campaign/create">Crie uma</a> ou entre com um codigo de convite.
+    </div>
+}
+else
+{
+    var masterCampaigns = campaigns.Where(c => c.MasterId == userId).ToList();
+    var playerCampaigns = campaigns.Where(c => c.MasterId != userId).ToList();
+
+    if (masterCampaigns.Any())
+    {
+        <h5 class="text-muted mb-3">Como Mestre</h5>
+        <div class="row mb-4">
+            @foreach (var c in masterCampaigns)
+            {
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@c.Name</h5>
+                            <span class="badge @GetStatusBadge(c.Status)">@c.Status</span>
+                            <p class="card-text text-muted mt-2">@(c.Players.Count) jogador(es)</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/campaign/@c.Id" class="btn btn-sm btn-outline-primary">Ver Campanha</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    if (playerCampaigns.Any())
+    {
+        <h5 class="text-muted mb-3">Como Jogador</h5>
+        <div class="row">
+            @foreach (var c in playerCampaigns)
+            {
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@c.Name</h5>
+                            <span class="badge @GetStatusBadge(c.Status)">@c.Status</span>
+                            <p class="card-text text-muted mt-2">@(c.Players.Count + 1) membro(s)</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/campaign/@c.Id" class="btn btn-sm btn-outline-primary">Ver Campanha</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<Campaign>? campaigns;
+    private string userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        campaigns = await CampaignService.GetCampaignsForUserAsync(userId);
+    }
+
+    private string GetStatusBadge(CampaignStatus status) => status switch
+    {
+        CampaignStatus.Active => "bg-success",
+        CampaignStatus.Paused => "bg-warning text-dark",
+        CampaignStatus.Finished => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,78 @@
+@page "/campaign/{CampaignId:guid}/characters"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Text.Json
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Data.Models
+@using T20Master.Web.Services
+@inject CharacterService CharacterService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Fichas - T20Master</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Fichas da Campanha</h3>
+    <a href="/campaign/@CampaignId" class="btn btn-outline-secondary btn-sm">Voltar</a>
+</div>
+
+@if (characters == null)
+{
+    <p>Carregando...</p>
+}
+else if (!characters.Any())
+{
+    <div class="alert alert-info">Nenhuma ficha criada ainda.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Jogador</th>
+                    <th>Raca</th>
+                    <th>Classe</th>
+                    <th>Nivel</th>
+                    <th>PV</th>
+                    <th>PM</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in characters)
+                {
+                    var classes = JsonSerializer.Deserialize<ClassEntry[]>(c.Classes) ?? [];
+                    var classText = string.Join(", ", classes.Select(cl => $"{cl.ClassName} {cl.Level}"));
+                    <tr>
+                        <td>@c.Name</td>
+                        <td>@c.Player?.DisplayName</td>
+                        <td>@c.Race</td>
+                        <td>@classText</td>
+                        <td>@c.Level</td>
+                        <td>@c.CurrentHP/@c.MaxHP</td>
+                        <td>@c.CurrentMP/@c.MaxMP</td>
+                        <td>
+                            <a href="/campaign/@CampaignId/character/@c.Id" class="btn btn-sm btn-outline-primary">Editar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid CampaignId { get; set; }
+
+    private List<CharacterSheet>? characters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        characters = await CharacterService.GetCharactersForCampaignAsync(CampaignId, userId);
+    }
+}

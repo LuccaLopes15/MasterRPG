@@ -1,0 +1,42 @@
+@page "/login"
+
+<PageTitle>Entrar - Master</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="auth-card mx-auto">
+            <img src="logo.png" alt="Master" class="auth-logo" />
+            <h3 class="text-center mb-4" style="color: var(--antique-gold);">Entrar</h3>
+
+            @if (HttpContext?.Request.Query.ContainsKey("error") == true)
+            {
+                <div class="alert alert-danger">Email ou senha invalidos.</div>
+            }
+
+            <form method="post" action="/account/login">
+                <AntiforgeryToken />
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input name="email" type="email" class="form-control" required />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Senha</label>
+                    <input name="password" type="password" class="form-control" required />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+            </form>
+
+            <p class="text-center mt-4" style="color: var(--ink-muted);">
+                Nao tem conta? <a href="/register">Cadastrar</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+}

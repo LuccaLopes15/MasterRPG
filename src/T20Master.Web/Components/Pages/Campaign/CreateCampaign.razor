@@ -1,0 +1,63 @@
+@page "/campaign/create"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using T20Master.Web.Services
+@inject CampaignService CampaignService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Criar Campanha - T20Master</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h3 class="mb-4">Nova Campanha</h3>
+
+        <EditForm Model="model" OnValidSubmit="HandleCreate" FormName="create-campaign">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Nome da Campanha</label>
+                <InputText @bind-Value="model.Name" class="form-control" />
+                <ValidationMessage For="() => model.Name" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Descricao (opcional)</label>
+                <InputTextArea @bind-Value="model.Description" class="form-control" rows="3" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Criar Campanha</button>
+            <a href="/dashboard" class="btn btn-outline-secondary ms-2">Cancelar</a>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private CreateModel model { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        model ??= new();
+    }
+
+    private async Task HandleCreate()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return;
+
+        var campaign = await CampaignService.CreateCampaignAsync(userId, model.Name, model.Description);
+        Navigation.NavigateTo($"/campaign/{campaign.Id}", forceLoad: true);
+    }
+
+    private class CreateModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Nome obrigatorio")]
+        [System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.MaxLength(500)]
+        public string? Description { get; set; }
+    }
+}

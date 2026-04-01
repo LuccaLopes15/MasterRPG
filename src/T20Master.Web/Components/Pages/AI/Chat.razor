@@ -1,0 +1,140 @@
+@page "/campaign/{CampaignId:guid}/ai"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Services
+@using T20Master.Web.Services.AI
+@inject GeminiChatService ChatService
+@inject CampaignService CampaignService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Chat IA - T20Master</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Consultor de Regras T20</h4>
+    <a href="/campaign/@CampaignId" class="btn btn-outline-secondary btn-sm">Voltar</a>
+</div>
+
+<div class="card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
+    <div id="chatMessages" class="card-body overflow-auto flex-grow-1" style="font-size: 0.95rem;">
+        @if (!messages.Any())
+        {
+            <div class="text-center text-muted mt-4">
+                <p>Pergunte sobre regras, classes, magias, combate ou qualquer coisa do T20!</p>
+                <p><small>A IA tem acesso ao Livro Basico e as fichas dos jogadores desta campanha.</small></p>
+            </div>
+        }
+
+        @foreach (var msg in messages)
+        {
+            <div class="mb-3 @(msg.Role == "user" ? "text-end" : "")">
+                <div class="d-inline-block p-2 rounded-3 @(msg.Role == "user" ? "bg-primary text-white" : "bg-light")"
+                     style="max-width: 85%; text-align: left; white-space: pre-wrap;">
+                    @msg.Content
+                </div>
+            </div>
+        }
+
+        @if (isThinking)
+        {
+            <div class="mb-3">
+                <div class="d-inline-block p-2 rounded-3 bg-light">
+                    <em>Buscando nas regras...</em>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="card-footer">
+        <div class="input-group">
+            <input @bind="currentQuestion"
+                   @bind:event="oninput"
+                   @onkeydown="HandleKeyDown"
+                   class="form-control"
+                   placeholder="Pergunte sobre regras do T20..."
+                   disabled="@isSending" />
+            <button class="btn btn-primary" @onclick="SendQuestion" disabled="@(isSending || string.IsNullOrWhiteSpace(currentQuestion))">
+                Enviar
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid CampaignId { get; set; }
+
+    private List<ChatMessage> messages = [];
+    private string currentQuestion = "";
+    private bool isSending;
+    private bool isThinking;
+    private string userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        // Verify user is campaign master
+        var campaign = await CampaignService.GetCampaignAsync(CampaignId, userId);
+        if (campaign == null || !CampaignService.IsMaster(campaign, userId))
+        {
+            Navigation.NavigateTo("/dashboard", forceLoad: true);
+            return;
+        }
+
+        messages = await ChatService.GetHistoryAsync(CampaignId, userId);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !isSending && !string.IsNullOrWhiteSpace(currentQuestion))
+        {
+            await SendQuestion();
+        }
+    }
+
+    private async Task SendQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(currentQuestion) || isSending) return;
+
+        var question = currentQuestion.Trim();
+        currentQuestion = "";
+        isSending = true;
+        isThinking = true;
+
+        // Add user message
+        messages.Add(new ChatMessage { Role = "user", Content = question, Timestamp = DateTime.UtcNow });
+        await ScrollToBottom();
+        StateHasChanged();
+
+        // Add placeholder for AI response
+        var aiMessage = new ChatMessage { Role = "assistant", Content = "", Timestamp = DateTime.UtcNow };
+        messages.Add(aiMessage);
+        isThinking = false;
+        StateHasChanged();
+
+        // Stream response
+        await ChatService.StreamResponseAsync(CampaignId, userId, question, async token =>
+        {
+            aiMessage.Content += token;
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
+        });
+
+        isSending = false;
+        StateHasChanged();
+        await ScrollToBottom();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("scrollToBottom", "chatMessages");
+        }
+        catch { }
+    }
+}

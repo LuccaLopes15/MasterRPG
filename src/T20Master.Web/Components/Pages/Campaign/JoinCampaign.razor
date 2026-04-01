@@ -1,0 +1,50 @@
+@page "/campaign/{CampaignId:guid}/join/{InviteCode:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using T20Master.Web.Services
+@inject CampaignService CampaignService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Entrar na Campanha - T20Master</PageTitle>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+    <a href="/dashboard" class="btn btn-primary">Voltar ao Dashboard</a>
+}
+else
+{
+    <p>Entrando na campanha...</p>
+}
+
+@code {
+    [Parameter]
+    public Guid CampaignId { get; set; }
+
+    [Parameter]
+    public Guid InviteCode { get; set; }
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            Navigation.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        var success = await CampaignService.JoinCampaignAsync(InviteCode, userId);
+        if (success)
+        {
+            Navigation.NavigateTo($"/campaign/{CampaignId}", forceLoad: true);
+        }
+        else
+        {
+            errorMessage = "Codigo de convite invalido ou campanha nao encontrada.";
+        }
+    }
+}

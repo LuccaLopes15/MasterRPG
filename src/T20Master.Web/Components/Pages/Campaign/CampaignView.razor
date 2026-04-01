@@ -1,0 +1,138 @@
+@page "/campaign/{CampaignId:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Services
+@inject CampaignService CampaignService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>@(campaign?.Name ?? "Campanha") - T20Master</PageTitle>
+
+@if (campaign == null)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3>@campaign.Name</h3>
+            <span class="badge @GetStatusBadge(campaign.Status) me-2">@campaign.Status</span>
+            <span class="text-muted">Mestre: @campaign.Master.DisplayName</span>
+        </div>
+        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Voltar</a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(campaign.Description))
+    {
+        <p class="text-muted">@campaign.Description</p>
+    }
+
+    @if (isMaster)
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Codigo de Convite</h5>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="@GetInviteUrl()" readonly />
+                    <button class="btn btn-outline-secondary" @onclick="CopyInviteCode">Copiar</button>
+                </div>
+                <small class="text-muted">Compartilhe este link com seus jogadores</small>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Status da Campanha</label>
+            <select class="form-select w-auto d-inline-block ms-2" @onchange="HandleStatusChange">
+                @foreach (var status in Enum.GetValues<CampaignStatus>())
+                {
+                    <option value="@status" selected="@(campaign.Status == status)">@status</option>
+                }
+            </select>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            <a href="/campaign/@CampaignId/characters" class="btn btn-outline-primary">Ver Fichas</a>
+            <a href="/campaign/@CampaignId/ai" class="btn btn-outline-success">Chat IA</a>
+        </div>
+    }
+    else
+    {
+        var myCharacter = campaign.Characters.FirstOrDefault(c => c.PlayerId == userId);
+        <div class="mb-4">
+            @if (myCharacter != null)
+            {
+                <a href="/campaign/@CampaignId/character/@myCharacter.Id" class="btn btn-primary">Minha Ficha</a>
+            }
+            else
+            {
+                <a href="/campaign/@CampaignId/character/create" class="btn btn-primary">Criar Ficha</a>
+            }
+        </div>
+    }
+
+    <h5>Jogadores (@(campaign.Players.Count + 1))</h5>
+    <ul class="list-group">
+        <li class="list-group-item d-flex justify-content-between">
+            <span>@campaign.Master.DisplayName</span>
+            <span class="badge bg-primary">Mestre</span>
+        </li>
+        @foreach (var player in campaign.Players)
+        {
+            <li class="list-group-item">@player.Player.DisplayName</li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public Guid CampaignId { get; set; }
+
+    private Campaign? campaign;
+    private string userId = string.Empty;
+    private bool isMaster;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        campaign = await CampaignService.GetCampaignAsync(CampaignId, userId);
+        if (campaign == null)
+        {
+            Navigation.NavigateTo("/dashboard", forceLoad: true);
+            return;
+        }
+
+        isMaster = CampaignService.IsMaster(campaign, userId);
+    }
+
+    private string GetInviteUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/campaign/{CampaignId}/join/{campaign!.InviteCode}";
+    }
+
+    private async Task CopyInviteCode()
+    {
+        // JS interop for clipboard will be added in Phase 7
+    }
+
+    private async Task HandleStatusChange(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<CampaignStatus>(e.Value?.ToString(), out var status))
+        {
+            await CampaignService.UpdateStatusAsync(CampaignId, userId, status);
+            campaign!.Status = status;
+        }
+    }
+
+    private string GetStatusBadge(CampaignStatus status) => status switch
+    {
+        CampaignStatus.Active => "bg-success",
+        CampaignStatus.Paused => "bg-warning text-dark",
+        CampaignStatus.Finished => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}
