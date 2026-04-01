@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/T20Master.Web/T20Master.Web.csproj" />
+  </Folder>
+</Solution>

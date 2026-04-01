@@ -55,7 +55,12 @@ Desktop.ini
 
 ## Environment
 .env
+appsettings.Development.json
 appsettings.Production.json
+
+## Claude
+CLAUDE.md
 
 ## Docker
 docker-compose.override.yml
+/.dockerignore
