@@ -1,35 +1,22 @@
 @page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 
-<PageTitle>Master - Sistema de Apoio para Mestres de RPG</PageTitle>
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
 
-<div class="text-center mt-5">
-    <img src="logo.png" alt="Master" class="hero-logo" />
-    <h1 class="hero-title">Master</h1>
-    <p class="hero-subtitle">Sistema de apoio para mestres de RPG</p>
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 
-    <div class="row justify-content-center mt-5 g-4">
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h5>Campanhas</h5>
-                <p>Crie campanhas, convide jogadores e gerencie suas aventuras em Arton.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h5>Fichas</h5>
-                <p>Fichas completas com atributos, classes, pericias, magias e equipamentos.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h5>IA Consultora</h5>
-                <p>Consulte regras do T20 em tempo real com IA que conhece o Livro Basico.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="mt-5">
-        <a href="/register" class="btn btn-primary btn-lg me-3">Criar Conta</a>
-        <a href="/login" class="btn btn-outline-primary btn-lg">Entrar</a>
-    </div>
-</div>
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated == true)
+                Navigation.NavigateTo("/dashboard", forceLoad: true);
+            else
+                Navigation.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}

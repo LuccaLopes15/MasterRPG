@@ -6,6 +6,7 @@
 @inject CampaignService CampaignService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>@(campaign?.Name ?? "Campanha") - T20Master</PageTitle>
 
@@ -72,6 +73,11 @@ else
         </div>
     }
 
+    @if (showCopiedToast)
+    {
+        <div class="toast-copied">Copiado!</div>
+    }
+
     <h5>Jogadores (@(campaign.Players.Count + 1))</h5>
     <ul class="list-group">
         <li class="list-group-item d-flex justify-content-between">
@@ -92,6 +98,7 @@ else
     private Campaign? campaign;
     private string userId = string.Empty;
     private bool isMaster;
+    private bool showCopiedToast;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,7 +123,12 @@ else
 
     private async Task CopyInviteCode()
     {
-        // JS interop for clipboard will be added in Phase 7
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetInviteUrl());
+        showCopiedToast = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        showCopiedToast = false;
+        StateHasChanged();
     }
 
     private async Task HandleStatusChange(ChangeEventArgs e)

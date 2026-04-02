@@ -35,6 +35,14 @@ main {
         text-decoration: none;
     }
 
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-base);
+}
+
 @media (max-width: 640.98px) {
     .top-row {
         justify-content: space-between;

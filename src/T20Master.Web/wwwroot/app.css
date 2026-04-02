@@ -252,6 +252,16 @@ small, .text-muted { color: var(--ink-muted) !important; }
     font-size: 0.9rem;
 }
 
+.form-select option {
+    background: var(--surface-200);
+    color: var(--ink-primary);
+}
+
+.form-select option:checked {
+    background: var(--deep-amber);
+    color: var(--surface-base);
+}
+
 .form-control:focus, .form-select:focus {
     background: var(--control-bg);
     border-color: var(--action-primary);
@@ -648,6 +658,27 @@ h1:focus { outline: none; }
 /* ============================================
    Responsive
    ============================================ */
+
+.toast-copied {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--deep-amber);
+    color: var(--surface-base);
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    z-index: 9999;
+    animation: toast-fade 2s ease-in-out;
+}
+
+@keyframes toast-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
 
 @media (max-width: 768px) {
     .sidebar { width: 100%; position: fixed; z-index: 100; }
