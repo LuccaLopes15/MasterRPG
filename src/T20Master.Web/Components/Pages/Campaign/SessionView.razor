@@ -44,14 +44,17 @@ else
         }
     </div>
 
-    <div class="session-layout @(session.Mode == SceneMode.Combat ? "with-board" : "")">
+    <div class="session-layout @(session.Mode == SceneMode.Combat ? "with-board" : "")"
+         tabindex="0" @onkeydown="HandleKeyDown">
         <div class="map-area">
             @if (isMaster)
             {
                 <TokenPlacer AvailableCharacters="availableCharacters"
                              OnPlaceCharacter="HandlePlaceCharacter"
                              OnPlaceEnemy="HandlePlaceEnemy"
-                             OnClearMap="HandleClearMap" />
+                             OnClearMap="HandleClearMap"
+                             IsBrushMode="brushMode"
+                             OnStopBrush="StopBrush" />
             }
 
             <TacticalMap GridWidth="session.GridWidth"
@@ -87,6 +90,7 @@ else
 
 @code {
     private bool showChat;
+    private bool brushMode;
     [Parameter] public Guid CampaignId { get; set; }
 
     private Campaign? campaign;
@@ -302,11 +306,26 @@ else
         }
         else if (pendingEnemyToken != null)
         {
-            pendingEnemyToken.GridX = pos.x;
-            pendingEnemyToken.GridY = pos.y;
-            await MapService.PlaceTokenAsync(session!.Id, userId, pendingEnemyToken);
-            pendingEnemyToken = null;
-            await ShowToast("Token colocado!");
+            if (brushMode)
+            {
+                var copy = new MapToken
+                {
+                    Type = TokenType.Obstacle,
+                    Label = pendingEnemyToken.Label,
+                    Color = pendingEnemyToken.Color,
+                    GridX = pos.x,
+                    GridY = pos.y
+                };
+                await MapService.PlaceTokenAsync(session!.Id, userId, copy);
+            }
+            else
+            {
+                pendingEnemyToken.GridX = pos.x;
+                pendingEnemyToken.GridY = pos.y;
+                await MapService.PlaceTokenAsync(session!.Id, userId, pendingEnemyToken);
+                pendingEnemyToken = null;
+                await ShowToast("Token colocado!");
+            }
         }
     }
 
@@ -321,7 +340,30 @@ else
     {
         pendingEnemyToken = enemyToken;
         pendingCharacterId = null;
-        await ShowToast("Clique no mapa para posicionar");
+
+        if (enemyToken.Type == TokenType.Obstacle)
+        {
+            brushMode = true;
+            await ShowToast("Modo pincel: clique nos quadrados. Esc para sair");
+        }
+        else
+        {
+            brushMode = false;
+            await ShowToast("Clique no mapa para posicionar");
+        }
+    }
+
+    private async Task StopBrush()
+    {
+        brushMode = false;
+        pendingEnemyToken = null;
+        await ShowToast("Pincel desativado");
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && brushMode)
+            await StopBrush();
     }
 
     private async Task HandleClearMap()
