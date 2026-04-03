@@ -1,0 +1,316 @@
+@using System.Text.Json
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Data.Models
+@using T20Master.Web.Services
+@inject CharacterService CharacterService
+
+@if (IsOpen)
+{
+    <div class="chat-drawer-overlay" @onclick="Close"></div>
+    <div class="char-drawer">
+        @if (selectedCharacter == null)
+        {
+            @* --- LISTA DE PERSONAGENS (master) --- *@
+            <div class="chat-drawer-header">
+                <h5 class="mb-0">Fichas</h5>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Close">&times;</button>
+            </div>
+            <div class="char-drawer-content">
+                @foreach (var c in Characters)
+                {
+                    var hpPct = c.MaxHP > 0 ? (int)(100.0 * c.CurrentHP / c.MaxHP) : 0;
+                    var classes = DeserializeClasses(c.Classes);
+                    <div class="char-list-item" @onclick="() => SelectCharacter(c)">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong style="color: var(--ink-primary);">@c.Name</strong>
+                            <small style="color: var(--ink-muted);">Nv @c.Level</small>
+                        </div>
+                        <div style="color: var(--ink-secondary); font-size: 0.8rem;">
+                            @c.Race @(classes.Any() ? "- " + string.Join(", ", classes.Select(cl => $"{cl.ClassName} {cl.Level}")) : "")
+                        </div>
+                        <div class="stat-bar hp-bar mt-1" style="height: 4px;">
+                            <div class="stat-bar-fill" style="width: @(hpPct)%; background: @(hpPct > 50 ? "#6B8E23" : hpPct > 25 ? "#DAA520" : "#C45B4A");"></div>
+                        </div>
+                        <small style="color: var(--ink-muted);">PV: @c.CurrentHP / @c.MaxHP</small>
+                    </div>
+                }
+                @if (!Characters.Any())
+                {
+                    <p class="text-center mt-4" style="color: var(--ink-muted);">Nenhum personagem na campanha.</p>
+                }
+            </div>
+        }
+        else
+        {
+            @* --- FICHA COMPACTA --- *@
+            <div class="chat-drawer-header">
+                <div class="d-flex align-items-center gap-2">
+                    @if (IsMaster)
+                    {
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => selectedCharacter = null">&larr;</button>
+                    }
+                    <h5 class="mb-0">@selectedCharacter.Name</h5>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Close">&times;</button>
+            </div>
+
+            <div class="char-drawer-content">
+                @* Info *@
+                <div class="char-section">
+                    <div class="char-section-title">Info</div>
+                    <div class="char-info-row">
+                        <span>@selectedCharacter.Race</span>
+                        <span>Nivel @selectedCharacter.Level</span>
+                        <span>XP: @selectedCharacter.XP</span>
+                    </div>
+                    @{
+                        var selClasses = DeserializeClasses(selectedCharacter.Classes);
+                    }
+                    @if (selClasses.Any())
+                    {
+                        <div style="color: var(--ink-secondary); font-size: 0.85rem; margin-top: 4px;">
+                            @string.Join(", ", selClasses.Select(c => $"{c.ClassName} {c.Level}"))
+                        </div>
+                    }
+                </div>
+
+                @* Combate *@
+                <div class="char-section">
+                    <div class="char-section-title">Combate</div>
+                    <div class="char-stat-grid">
+                        <div class="char-stat-item">
+                            <label>PV</label>
+                            <div class="d-flex gap-1 align-items-center">
+                                <input type="number" @bind="selectedCharacter.CurrentHP" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                                <span style="color: var(--ink-muted);">/</span>
+                                <input type="number" @bind="selectedCharacter.MaxHP" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                            </div>
+                        </div>
+                        <div class="char-stat-item">
+                            <label>PM</label>
+                            <div class="d-flex gap-1 align-items-center">
+                                <input type="number" @bind="selectedCharacter.CurrentMP" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                                <span style="color: var(--ink-muted);">/</span>
+                                <input type="number" @bind="selectedCharacter.MaxMP" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                            </div>
+                        </div>
+                        <div class="char-stat-item">
+                            <label>Defesa</label>
+                            <input type="number" @bind="selectedCharacter.Defense" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                        </div>
+                        <div class="char-stat-item">
+                            <label>Deslocamento</label>
+                            <input type="number" @bind="selectedCharacter.Speed" class="form-control form-control-sm" style="width: 60px;" disabled="@(!canEdit)" />
+                        </div>
+                    </div>
+                </div>
+
+                @* Atributos *@
+                <div class="char-section">
+                    <div class="char-section-title">Atributos</div>
+                    <div class="char-attr-grid">
+                        <div class="char-attr-item"><label>FOR</label><input type="number" @bind="selectedCharacter.Strength" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                        <div class="char-attr-item"><label>DES</label><input type="number" @bind="selectedCharacter.Dexterity" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                        <div class="char-attr-item"><label>CON</label><input type="number" @bind="selectedCharacter.Constitution" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                        <div class="char-attr-item"><label>INT</label><input type="number" @bind="selectedCharacter.Intelligence" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                        <div class="char-attr-item"><label>SAB</label><input type="number" @bind="selectedCharacter.Wisdom" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                        <div class="char-attr-item"><label>CAR</label><input type="number" @bind="selectedCharacter.Charisma" class="form-control form-control-sm" disabled="@(!canEdit)" /></div>
+                    </div>
+                </div>
+
+                @* Pericias treinadas *@
+                @{
+                    var skills = DeserializeSkills(selectedCharacter.Skills).Where(s => s.Trained).ToList();
+                }
+                @if (skills.Any())
+                {
+                    <div class="char-section">
+                        <div class="char-section-title">Pericias Treinadas</div>
+                        <div style="color: var(--ink-secondary); font-size: 0.85rem;">
+                            @string.Join(", ", skills.Select(s => s.Name))
+                        </div>
+                    </div>
+                }
+
+                @* Habilidades *@
+                @{
+                    var abilities = DeserializeAbilities(selectedCharacter.Abilities);
+                }
+                @if (abilities.Any())
+                {
+                    <div class="char-section">
+                        <div class="char-section-title">Habilidades (@abilities.Count)</div>
+                        @foreach (var a in abilities)
+                        {
+                            <div class="char-compact-item">
+                                <strong>@a.Name</strong>
+                                @if (!string.IsNullOrEmpty(a.Source))
+                                {
+                                    <span style="color: var(--ink-muted);"> (@a.Source)</span>
+                                }
+                                @if (!string.IsNullOrEmpty(a.Description))
+                                {
+                                    <div style="color: var(--ink-secondary); font-size: 0.8rem;">@a.Description</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Magias *@
+                @{
+                    var spells = DeserializeSpells(selectedCharacter.Spells);
+                }
+                @if (spells.Any())
+                {
+                    <div class="char-section">
+                        <div class="char-section-title">Magias (@spells.Count)</div>
+                        @foreach (var s in spells)
+                        {
+                            <div class="char-compact-item">
+                                <strong>@s.Name</strong>
+                                @if (s.Circle > 0)
+                                {
+                                    <span style="color: var(--ink-muted);"> (@s.Circle o circulo)</span>
+                                }
+                                @if (!string.IsNullOrEmpty(s.Description))
+                                {
+                                    <div style="color: var(--ink-secondary); font-size: 0.8rem;">@s.Description</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Equipamento *@
+                @{
+                    var equipment = DeserializeEquipment(selectedCharacter.Equipment);
+                }
+                @if (equipment.Any())
+                {
+                    <div class="char-section">
+                        <div class="char-section-title">Equipamento (@equipment.Count)</div>
+                        @foreach (var eq in equipment)
+                        {
+                            <div class="char-compact-item">
+                                <strong>@eq.Name</strong>
+                                @if (!string.IsNullOrEmpty(eq.Type))
+                                {
+                                    <span style="color: var(--ink-muted);"> (@eq.Type)</span>
+                                }
+                                @if (!string.IsNullOrEmpty(eq.Bonus))
+                                {
+                                    <span style="color: var(--ink-secondary);"> @eq.Bonus</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Notas *@
+                <div class="char-section">
+                    <div class="char-section-title">Notas</div>
+                    <textarea @bind="selectedCharacter.Notes" class="form-control form-control-sm" rows="4"
+                              placeholder="Anotacoes..." disabled="@(!canEdit)"></textarea>
+                </div>
+            </div>
+
+            @* Footer *@
+            <div class="chat-drawer-footer d-flex justify-content-between align-items-center">
+                @if (canEdit)
+                {
+                    <button class="btn btn-primary btn-sm" @onclick="SaveCharacter" disabled="@isSaving">
+                        @(isSaving ? "Salvando..." : "Salvar")
+                    </button>
+                }
+                else
+                {
+                    <span></span>
+                }
+                <a href="/campaign/@CampaignId/character/@selectedCharacter.Id" target="_blank"
+                   class="btn btn-outline-secondary btn-sm">Ficha completa</a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid CampaignId { get; set; }
+    [Parameter] public string UserId { get; set; } = string.Empty;
+    [Parameter] public bool IsMaster { get; set; }
+    [Parameter] public List<CharacterSheet> Characters { get; set; } = [];
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private CharacterSheet? selectedCharacter;
+    private bool isSaving;
+    private bool canEdit;
+    private bool wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && !wasOpen)
+        {
+            // Auto-select character for players (not master)
+            if (!IsMaster)
+            {
+                selectedCharacter = Characters.FirstOrDefault(c => c.PlayerId == UserId);
+            }
+            else
+            {
+                selectedCharacter = null;
+            }
+            UpdateCanEdit();
+        }
+        wasOpen = IsOpen;
+    }
+
+    private void SelectCharacter(CharacterSheet c)
+    {
+        selectedCharacter = c;
+        UpdateCanEdit();
+    }
+
+    private void UpdateCanEdit()
+    {
+        canEdit = selectedCharacter != null && (IsMaster || selectedCharacter.PlayerId == UserId);
+    }
+
+    private async Task SaveCharacter()
+    {
+        if (selectedCharacter == null || !canEdit) return;
+        isSaving = true;
+        await CharacterService.UpdateCharacterAsync(selectedCharacter.Id, UserId, selectedCharacter);
+        isSaving = false;
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private List<ClassEntry> DeserializeClasses(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<ClassEntry>>(json) ?? []; } catch { return []; }
+    }
+
+    private List<SkillEntry> DeserializeSkills(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<SkillEntry>>(json) ?? []; } catch { return []; }
+    }
+
+    private List<AbilityEntry> DeserializeAbilities(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<AbilityEntry>>(json) ?? []; } catch { return []; }
+    }
+
+    private List<SpellEntry> DeserializeSpells(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<SpellEntry>>(json) ?? []; } catch { return []; }
+    }
+
+    private List<EquipmentEntry> DeserializeEquipment(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<EquipmentEntry>>(json) ?? []; } catch { return []; }
+    }
+}

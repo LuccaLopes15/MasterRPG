@@ -30,18 +30,26 @@ else
                 @(session.Mode == SceneMode.Combat ? "Combate" : "Exploracao")
             </span>
         </div>
-        @if (isMaster)
-        {
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-warning" @onclick="() => showChat = !showChat">
-                    Master AI
-                </button>
-                <button class="btn btn-sm @(session.Mode == SceneMode.Combat ? "btn-outline-success" : "btn-outline-danger")"
-                        @onclick="ToggleMode">
+        <div class="d-flex gap-2">
+            @if (isMaster)
+            {
+                <button class="btn btn-sm session-header-btn" @onclick="ToggleMode">
                     @(session.Mode == SceneMode.Combat ? "Modo Exploracao" : "Modo Combate")
                 </button>
-            </div>
-        }
+                <button class="btn btn-sm session-header-btn" @onclick="RequestClearMap">
+                    @(confirmingClear ? "Confirmar?" : "Limpar Mapa")
+                </button>
+            }
+            <button class="btn btn-sm session-header-btn" @onclick="ToggleCharacters">
+                @(isMaster ? "Fichas" : "Minha Ficha")
+            </button>
+            @if (isMaster)
+            {
+                <button class="btn btn-sm session-header-btn" @onclick="ToggleChat" type="button">
+                    Master AI
+                </button>
+            }
+        </div>
     </div>
 
     <div class="session-layout @(session.Mode == SceneMode.Combat ? "with-board" : "")"
@@ -87,10 +95,15 @@ else
 }
 
 <ChatDrawer CampaignId="CampaignId" UserId="@userId" IsOpen="showChat" OnClose="() => showChat = false" />
+<CharacterDrawer CampaignId="CampaignId" UserId="@userId" IsMaster="isMaster"
+                 Characters="campaignCharacters" IsOpen="showCharacters"
+                 OnClose="() => showCharacters = false" />
 
 @code {
     private bool showChat;
+    private bool showCharacters;
     private bool brushMode;
+    private bool confirmingClear;
     [Parameter] public Guid CampaignId { get; set; }
 
     private Campaign? campaign;
@@ -282,6 +295,18 @@ else
 
     // --- Mestre Actions ---
 
+    private void ToggleChat()
+    {
+        showChat = !showChat;
+        if (showChat) showCharacters = false;
+    }
+
+    private void ToggleCharacters()
+    {
+        showCharacters = !showCharacters;
+        if (showCharacters) showChat = false;
+    }
+
     private async Task ToggleMode()
     {
         if (session == null) return;
@@ -370,6 +395,17 @@ else
     {
         if (session == null) return;
         await MapService.ClearMapAsync(session.Id, userId);
+    }
+
+    private async Task RequestClearMap()
+    {
+        if (!confirmingClear)
+        {
+            confirmingClear = true;
+            return;
+        }
+        confirmingClear = false;
+        await HandleClearMap();
     }
 
     private async Task HandleStatChanged((Guid charId, string field, int value) args)
