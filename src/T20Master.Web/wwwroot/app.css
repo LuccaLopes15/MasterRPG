@@ -864,6 +864,16 @@ h1:focus { outline: none; }
     opacity: 0.85;
 }
 
+/* Movement Range Overlay */
+.range-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0.2;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 0;
+}
+
 /* Map Controls (zoom/pan/fullscreen) */
 .map-controls {
     position: absolute;

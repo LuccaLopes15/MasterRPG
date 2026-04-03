@@ -30,6 +30,8 @@
 
                         <div class="map-token @GetTokenTypeClass(token)"
                              data-token-id="@token.Id"
+                             data-speed="@GetTokenSpeed(token)"
+                             data-color="@tokenColor"
                              draggable="@(IsMaster ? "true" : "false")"
                              title="@GetTokenTooltip(token)"
                              style="--token-color: @tokenColor;">
@@ -133,6 +135,13 @@
 
         if (IsMaster && OnCellClick.HasDelegate)
             await OnCellClick.InvokeAsync((x, y));
+    }
+
+    private decimal GetTokenSpeed(MapToken token)
+    {
+        if (token.Type == TokenType.PlayerCharacter && token.CharacterSheet != null)
+            return token.CharacterSheet.Speed;
+        return token.Speed ?? 0;
     }
 
     private async Task ZoomIn() => await JS.InvokeVoidAsync("tacticalMap.zoomIn");

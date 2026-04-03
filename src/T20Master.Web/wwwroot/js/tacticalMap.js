@@ -37,6 +37,19 @@ window.tacticalMap = {
             e.dataTransfer.setData('text/plain', token.dataset.tokenId);
             e.dataTransfer.effectAllowed = 'move';
             setTimeout(() => token.classList.add('dragging'), 0);
+
+            // Show movement range overlay
+            const speed = parseFloat(token.dataset.speed || '0');
+            const color = token.dataset.color || '#E76D25';
+            if (speed > 0) {
+                const cell = token.closest('.grid-cell');
+                if (cell) {
+                    const originX = parseInt(cell.dataset.x);
+                    const originY = parseInt(cell.dataset.y);
+                    const rangeInSquares = Math.floor(speed / 1.5);
+                    this._showRangeOverlay(originX, originY, rangeInSquares, color);
+                }
+            }
         });
 
         document.addEventListener('dragover', (e) => {
@@ -61,6 +74,7 @@ window.tacticalMap = {
             this._draggingTokenId = null;
 
             this.wasDrop = true;
+            this._clearRangeOverlay();
             if (this._dotNetRef) {
                 this._dotNetRef.invokeMethodAsync('OnTokenDropped', tokenId, x, y);
             }
@@ -68,6 +82,7 @@ window.tacticalMap = {
 
         document.addEventListener('dragend', (e) => {
             this._draggingTokenId = null;
+            this._clearRangeOverlay();
             const token = e.target.closest('.map-token');
             if (token) token.classList.remove('dragging');
         });
@@ -165,6 +180,30 @@ window.tacticalMap = {
         } else {
             this._container.requestFullscreen();
         }
+    },
+
+    _showRangeOverlay: function (originX, originY, range, color) {
+        this._clearRangeOverlay();
+        const grid = document.getElementById('tactical-grid');
+        if (!grid) return;
+
+        const cells = grid.querySelectorAll('.grid-cell');
+        cells.forEach(cell => {
+            const cx = parseInt(cell.dataset.x);
+            const cy = parseInt(cell.dataset.y);
+            // Euclidean distance for circular range
+            const dist = Math.sqrt(Math.pow(cx - originX, 2) + Math.pow(cy - originY, 2));
+            if (dist > 0 && dist <= range) {
+                const overlay = document.createElement('div');
+                overlay.className = 'range-overlay';
+                overlay.style.background = color;
+                cell.appendChild(overlay);
+            }
+        });
+    },
+
+    _clearRangeOverlay: function () {
+        document.querySelectorAll('.range-overlay').forEach(el => el.remove());
     },
 
     // Called by Blazor to check if a drop just happened (to skip onclick)
