@@ -2,6 +2,12 @@
 @inject IJSRuntime JS
 
 <div class="tactical-map-container">
+    <div class="map-controls">
+        <button class="map-ctrl-btn" @onclick="ZoomIn" title="Zoom in">+</button>
+        <button class="map-ctrl-btn" @onclick="ZoomOut" title="Zoom out">&minus;</button>
+        <button class="map-ctrl-btn" @onclick="ResetView" title="Resetar vista">&#8634;</button>
+        <button class="map-ctrl-btn" @onclick="ToggleFullscreen" title="Tela cheia">&#9974;</button>
+    </div>
     <div id="tactical-grid" class="tactical-grid"
          style="grid-template-columns: repeat(@GridWidth, 1fr); grid-template-rows: repeat(@GridHeight, 1fr);">
         @for (int y = 0; y < GridHeight; y++)
@@ -128,4 +134,9 @@
         if (IsMaster && OnCellClick.HasDelegate)
             await OnCellClick.InvokeAsync((x, y));
     }
+
+    private async Task ZoomIn() => await JS.InvokeVoidAsync("tacticalMap.zoomIn");
+    private async Task ZoomOut() => await JS.InvokeVoidAsync("tacticalMap.zoomOut");
+    private async Task ResetView() => await JS.InvokeVoidAsync("tacticalMap.resetView");
+    private async Task ToggleFullscreen() => await JS.InvokeVoidAsync("tacticalMap.toggleFullscreen");
 }
