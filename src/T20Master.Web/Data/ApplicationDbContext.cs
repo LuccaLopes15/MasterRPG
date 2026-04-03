@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<GameSession> GameSessions => Set<GameSession>();
     public DbSet<MapToken> MapTokens => Set<MapToken>();
     public DbSet<CombatModifier> CombatModifiers => Set<CombatModifier>();
+    public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,11 +30,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Campaign
         modelBuilder.Entity<Campaign>(e =>
         {
-            e.HasIndex(c => c.InviteCode).IsUnique();
             e.HasOne(c => c.Master)
                 .WithMany()
                 .HasForeignKey(c => c.MasterId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // InviteCode
+        modelBuilder.Entity<InviteCode>(e =>
+        {
+            e.HasIndex(ic => ic.Code).IsUnique();
+            e.HasOne(ic => ic.Campaign)
+                .WithMany()
+                .HasForeignKey(ic => ic.CampaignId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // CampaignPlayer

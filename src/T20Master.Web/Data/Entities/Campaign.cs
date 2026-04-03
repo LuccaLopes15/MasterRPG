@@ -14,7 +14,6 @@ public class Campaign
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string MasterId { get; set; } = string.Empty;
-    public Guid InviteCode { get; set; } = Guid.NewGuid();
     public CampaignStatus Status { get; set; } = CampaignStatus.Active;
 
     public ApplicationUser Master { get; set; } = null!;

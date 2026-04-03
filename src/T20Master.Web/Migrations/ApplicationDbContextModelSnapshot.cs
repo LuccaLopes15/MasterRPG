@@ -236,9 +236,6 @@ namespace T20Master.Web.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("InviteCode")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("MasterId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -251,9 +248,6 @@ namespace T20Master.Web.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("InviteCode")
-                        .IsUnique();
 
                     b.HasIndex("MasterId");
 
@@ -472,6 +466,35 @@ namespace T20Master.Web.Migrations
                         .HasFilter("\"Status\" = 0");
 
                     b.ToTable("GameSessions");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.InviteCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("InviteCodes");
                 });
 
             modelBuilder.Entity("T20Master.Web.Data.Entities.MapToken", b =>
@@ -701,6 +724,17 @@ namespace T20Master.Web.Migrations
                 {
                     b.HasOne("T20Master.Web.Data.Entities.Campaign", "Campaign")
                         .WithMany("GameSessions")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.InviteCode", b =>
+                {
+                    b.HasOne("T20Master.Web.Data.Entities.Campaign", "Campaign")
+                        .WithMany()
                         .HasForeignKey("CampaignId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

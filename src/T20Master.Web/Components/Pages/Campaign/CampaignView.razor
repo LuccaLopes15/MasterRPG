@@ -36,11 +36,21 @@ else
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title">Codigo de Convite</h5>
-                <div class="input-group">
-                    <input type="text" class="form-control" value="@GetInviteUrl()" readonly />
-                    <button class="btn btn-outline-secondary" @onclick="CopyInviteCode">Copiar</button>
-                </div>
-                <small class="text-muted">Compartilhe este link com seus jogadores</small>
+                @if (activeInviteCode != null)
+                {
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control form-control-lg text-center fw-bold"
+                               value="@activeInviteCode.Code" readonly
+                               style="letter-spacing: 0.3em; font-family: monospace;" />
+                        <button class="btn btn-outline-secondary" @onclick="CopyInviteCode">Copiar</button>
+                    </div>
+                    <small class="text-muted">Expira em @(GetHoursLeft())h - Envie este codigo para seus jogadores</small>
+                }
+                else
+                {
+                    <button class="btn btn-primary" @onclick="GenerateInviteCode">Gerar Codigo</button>
+                    <small class="text-muted d-block mt-2">Gere um codigo temporario (24h) para seus jogadores entrarem</small>
+                }
             </div>
         </div>
 
@@ -119,6 +129,7 @@ else
     private bool showCopiedToast;
     private bool showChat;
     private T20Master.Web.Data.Entities.GameSession? activeSession;
+    private InviteCode? activeInviteCode;
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,17 +145,23 @@ else
 
         isMaster = CampaignService.IsMaster(campaign, userId);
         activeSession = await SessionService.GetActiveSessionAsync(CampaignId);
+
+        if (isMaster)
+            activeInviteCode = await CampaignService.GetActiveInviteCodeAsync(CampaignId);
     }
 
-    private string GetInviteUrl()
+    private int GetHoursLeft() =>
+        activeInviteCode != null ? (int)Math.Ceiling((activeInviteCode.ExpiresAt - DateTime.UtcNow).TotalHours) : 0;
+
+    private async Task GenerateInviteCode()
     {
-        var baseUrl = Navigation.BaseUri.TrimEnd('/');
-        return $"{baseUrl}/campaign/{CampaignId}/join/{campaign!.InviteCode}";
+        activeInviteCode = await CampaignService.GenerateInviteCodeAsync(CampaignId, userId);
     }
 
     private async Task CopyInviteCode()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetInviteUrl());
+        if (activeInviteCode == null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", activeInviteCode.Code);
         showCopiedToast = true;
         StateHasChanged();
         await Task.Delay(2000);

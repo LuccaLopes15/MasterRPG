@@ -21,7 +21,6 @@ public class CampaignService
             Name = name,
             Description = description,
             MasterId = userId,
-            InviteCode = Guid.NewGuid(),
             Status = CampaignStatus.Active,
             CreatedAt = DateTime.UtcNow
         };
@@ -61,15 +60,58 @@ public class CampaignService
         return campaign;
     }
 
-    public async Task<bool> JoinCampaignAsync(Guid inviteCode, string userId)
+    public async Task<InviteCode?> GenerateInviteCodeAsync(Guid campaignId, string masterId)
     {
-        var campaign = await _db.Campaigns
-            .Include(c => c.Players)
-            .FirstOrDefaultAsync(c => c.InviteCode == inviteCode);
+        var campaign = await _db.Campaigns.FindAsync(campaignId);
+        if (campaign == null || campaign.MasterId != masterId) return null;
 
-        if (campaign == null) return false;
-        if (campaign.MasterId == userId) return true;
-        if (campaign.Players.Any(p => p.PlayerId == userId)) return true;
+        // Remove old codes for this campaign
+        var oldCodes = await _db.InviteCodes
+            .Where(ic => ic.CampaignId == campaignId)
+            .ToListAsync();
+        _db.InviteCodes.RemoveRange(oldCodes);
+
+        // Generate unique 6-char code
+        string code;
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = Random.Shared;
+        do
+        {
+            code = new string(Enumerable.Range(0, 6).Select(_ => chars[random.Next(chars.Length)]).ToArray());
+        } while (await _db.InviteCodes.AnyAsync(ic => ic.Code == code));
+
+        var invite = new InviteCode
+        {
+            Id = Guid.NewGuid(),
+            CampaignId = campaignId,
+            Code = code,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddHours(24)
+        };
+
+        _db.InviteCodes.Add(invite);
+        await _db.SaveChangesAsync();
+        return invite;
+    }
+
+    public async Task<InviteCode?> GetActiveInviteCodeAsync(Guid campaignId)
+    {
+        return await _db.InviteCodes
+            .Where(ic => ic.CampaignId == campaignId && ic.ExpiresAt > DateTime.UtcNow)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<Guid?> JoinByCodeAsync(string code, string userId)
+    {
+        var invite = await _db.InviteCodes
+            .Include(ic => ic.Campaign).ThenInclude(c => c.Players)
+            .FirstOrDefaultAsync(ic => ic.Code == code.ToUpper() && ic.ExpiresAt > DateTime.UtcNow);
+
+        if (invite == null) return null;
+
+        var campaign = invite.Campaign;
+        if (campaign.MasterId == userId) return campaign.Id;
+        if (campaign.Players.Any(p => p.PlayerId == userId)) return campaign.Id;
 
         _db.CampaignPlayers.Add(new CampaignPlayer
         {
@@ -79,12 +121,7 @@ public class CampaignService
         });
 
         await _db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<Campaign?> GetCampaignByInviteCodeAsync(Guid inviteCode)
-    {
-        return await _db.Campaigns.FirstOrDefaultAsync(c => c.InviteCode == inviteCode);
+        return campaign.Id;
     }
 
     public async Task<bool> UpdateStatusAsync(Guid campaignId, string userId, CampaignStatus status)
