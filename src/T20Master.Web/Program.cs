@@ -37,6 +37,12 @@ builder.Services.AddScoped<T20Master.Web.Services.AI.EmbeddingService>();
 builder.Services.AddScoped<T20Master.Web.Services.AI.RagIndexer>();
 builder.Services.AddScoped<T20Master.Web.Services.AI.RagService>();
 builder.Services.AddScoped<T20Master.Web.Services.AI.GeminiChatService>();
+builder.Services.AddScoped<T20Master.Web.Services.GameSessionService>();
+builder.Services.AddScoped<T20Master.Web.Services.MapService>();
+builder.Services.AddScoped<T20Master.Web.Services.CombatBoardService>();
+
+// SignalR
+builder.Services.AddSignalR();
 
 // Blazor
 builder.Services.AddRazorComponents()
@@ -144,6 +150,8 @@ app.MapPost("/logout", async (SignInManager<ApplicationUser> signInManager) =>
     await signInManager.SignOutAsync();
     return Results.Redirect("/");
 });
+
+app.MapHub<T20Master.Web.Hubs.CampaignSessionHub>("/hubs/session");
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

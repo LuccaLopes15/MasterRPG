@@ -474,6 +474,77 @@ textarea.form-control {
     scrollbar-color: var(--border-default) transparent;
 }
 
+/* Chat Drawer */
+.chat-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+.chat-drawer {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 450px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--surface-200);
+    border-left: 1px solid var(--border-default);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    animation: slideInRight 0.2s ease-out;
+}
+@keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+.chat-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+.chat-drawer-header h5 {
+    color: var(--ink-primary);
+}
+.chat-drawer-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-3);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+}
+.chat-drawer-footer {
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+.chat-msg-user {
+    display: inline-block;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--deep-amber);
+    color: var(--surface-base);
+    max-width: 85%;
+    text-align: left;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+}
+.chat-msg-ai {
+    display: inline-block;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-300);
+    color: var(--ink-primary);
+    max-width: 85%;
+    text-align: left;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+}
+
 /* ============================================
    Layout (Blazor template overrides)
    ============================================ */
@@ -680,8 +751,276 @@ h1:focus { outline: none; }
     100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 }
 
+/* ============================================
+   Session / Tactical Map / Combat Board
+   ============================================ */
+
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-3);
+}
+
+.session-layout {
+    display: flex;
+    gap: var(--space-3);
+    height: calc(100vh - 10rem);
+}
+.session-layout .map-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    overflow: hidden;
+}
+.session-layout.with-board .map-area { flex: 7; }
+.session-layout .board-area {
+    flex: 3;
+    overflow-y: auto;
+    border-left: 1px solid var(--border-default);
+    padding-left: var(--space-3);
+}
+
+/* Tactical Grid */
+.tactical-map-container {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-base);
+}
+.tactical-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 600px;
+    min-height: 600px;
+}
+.grid-cell {
+    position: relative;
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    min-width: 0;
+}
+.cell-light { background: var(--surface-300); }
+.cell-dark { background: var(--surface-200); }
+
+/* Map Tokens */
+.map-token {
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--token-color, var(--deep-amber));
+    background: color-mix(in srgb, var(--token-color, var(--deep-amber)) 25%, var(--surface-base));
+    cursor: grab;
+    user-select: none;
+    position: relative;
+    z-index: 1;
+}
+.map-token.dragging { opacity: 0.5; }
+.token-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    line-height: 1;
+}
+.token-hp-bar {
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    width: 80%;
+    height: 3px;
+    background: var(--surface-base);
+    border-radius: 1px;
+    overflow: hidden;
+}
+.token-hp-fill {
+    height: 100%;
+    transition: width 0.3s;
+}
+.token-pc { border-color: var(--deep-amber); }
+.token-enemy { border-color: #C45B4A; }
+.token-npc { border-color: var(--faint-greenish-stone); }
+.token-obstacle {
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--token-color, #555) 60%, var(--surface-base)) !important;
+    border-color: #555;
+    opacity: 0.85;
+}
+
+/* Fullscreen mode (session) — hides sidebar and topbar */
+body.fullscreen .sidebar {
+    display: none !important;
+}
+body.fullscreen .top-row {
+    display: none !important;
+}
+body.fullscreen .content {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+/* Token Placer toolbar */
+.token-placer {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: var(--space-2);
+    background: var(--surface-200);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+.token-placer h6 {
+    color: var(--ink-secondary);
+    margin-bottom: var(--space-1);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.placer-section { display: flex; flex-direction: column; gap: var(--space-1); }
+.placer-row { display: flex; gap: var(--space-1); align-items: center; }
+.placer-form { display: flex; gap: var(--space-1); align-items: center; flex-wrap: wrap; }
+
+/* Combat Board */
+.combat-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.board-title {
+    color: var(--ink-primary);
+    margin: 0;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.combat-card {
+    background: var(--surface-200);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+.combat-card-enemy {
+    border-left: 3px solid #C45B4A;
+}
+.combat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: var(--space-2);
+}
+.combat-name {
+    color: var(--ink-primary);
+    font-weight: 600;
+}
+.combat-race {
+    color: var(--ink-muted);
+    font-size: 0.8rem;
+}
+.combat-stat-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+}
+.combat-stat-row label {
+    color: var(--ink-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    width: 24px;
+    flex-shrink: 0;
+}
+.stat-bar-container {
+    flex: 1;
+    height: 8px;
+    background: var(--surface-400);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.stat-bar {
+    height: 100%;
+    transition: width 0.3s;
+    border-radius: 4px;
+}
+.hp-bar { background: #6B8E23; }
+.mp-bar { background: #4682B4; }
+.combat-input {
+    width: 60px;
+    background: var(--control-bg);
+    border: 1px solid var(--control-border);
+    color: var(--control-text);
+    border-radius: var(--radius-sm);
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    text-align: center;
+}
+.stat-text {
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+    width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.combat-stats-inline {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-1);
+    font-size: 0.8rem;
+    color: var(--ink-secondary);
+}
+.modifier-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+}
+.modifier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: color-mix(in srgb, var(--deep-amber) 20%, var(--surface-base));
+    border: 1px solid var(--deep-amber);
+    color: var(--ink-primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+}
+.modifier-remove {
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 0.7rem;
+}
+.modifier-remove:hover { color: var(--danger); }
+.modifier-form {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+    margin-top: var(--space-1);
+    flex-wrap: wrap;
+}
+.modifier-form .form-select-sm,
+.modifier-form .form-control-sm {
+    width: auto;
+    min-width: 70px;
+}
+
 @media (max-width: 768px) {
     .sidebar { width: 100%; position: fixed; z-index: 100; }
     .hero-title { font-size: 1.8rem; }
     .auth-card { margin: var(--space-4); padding: var(--space-5); }
+    .session-layout { flex-direction: column; height: auto; }
+    .session-layout .board-area { border-left: none; border-top: 1px solid var(--border-default); padding-left: 0; padding-top: var(--space-3); }
 }

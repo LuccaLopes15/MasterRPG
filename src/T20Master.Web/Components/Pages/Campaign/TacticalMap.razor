@@ -1,0 +1,128 @@
+@using T20Master.Web.Data.Entities
+@inject IJSRuntime JS
+
+<div class="tactical-map-container">
+    <div id="tactical-grid" class="tactical-grid"
+         style="grid-template-columns: repeat(@GridWidth, 1fr); grid-template-rows: repeat(@GridHeight, 1fr);">
+        @for (int y = 0; y < GridHeight; y++)
+        {
+            for (int x = 0; x < GridWidth; x++)
+            {
+                var cellX = x;
+                var cellY = y;
+                var isLight = (x + y) % 2 == 0;
+                var token = GetTokenAt(cellX, cellY);
+
+                <div class="grid-cell @(isLight ? "cell-light" : "cell-dark")"
+                     data-x="@cellX" data-y="@cellY"
+                     @onclick="() => OnCellClicked(cellX, cellY)">
+                    @if (token != null)
+                    {
+                        var tokenLabel = GetTokenLabel(token);
+                        var tokenColor = GetTokenColor(token);
+                        var hpPercent = GetHpPercent(token);
+
+                        <div class="map-token @GetTokenTypeClass(token)"
+                             data-token-id="@token.Id"
+                             draggable="@(IsMaster ? "true" : "false")"
+                             title="@GetTokenTooltip(token)"
+                             style="--token-color: @tokenColor;">
+                            <span class="token-label">@tokenLabel</span>
+                            @if (hpPercent >= 0)
+                            {
+                                <div class="token-hp-bar">
+                                    <div class="token-hp-fill" style="width: @(hpPercent)%; background: @GetHpColor(hpPercent);"></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int GridWidth { get; set; } = 40;
+    [Parameter] public int GridHeight { get; set; } = 40;
+    [Parameter] public List<MapToken> Tokens { get; set; } = [];
+    [Parameter] public bool IsMaster { get; set; }
+    [Parameter] public EventCallback<(int x, int y)> OnCellClick { get; set; }
+
+    private MapToken? GetTokenAt(int x, int y) =>
+        Tokens.FirstOrDefault(t => t.GridX == x && t.GridY == y);
+
+    private string GetTokenLabel(MapToken token)
+    {
+        if (token.Type == TokenType.PlayerCharacter && token.CharacterSheet != null)
+            return token.CharacterSheet.Name.Length > 0 ? token.CharacterSheet.Name[..Math.Min(2, token.CharacterSheet.Name.Length)].ToUpper() : "?";
+
+        return (token.Label ?? "?").Length > 0
+            ? (token.Label ?? "?")[..Math.Min(2, (token.Label ?? "?").Length)].ToUpper()
+            : "?";
+    }
+
+    private string GetTokenColor(MapToken token)
+    {
+        if (!string.IsNullOrEmpty(token.Color)) return token.Color;
+        return token.Type switch
+        {
+            TokenType.PlayerCharacter => "#E76D25",
+            TokenType.Enemy => "#C45B4A",
+            TokenType.NPC => "#B4C7B4",
+            TokenType.Obstacle => "#555555",
+            _ => "#CF934B"
+        };
+    }
+
+    private string GetTokenTypeClass(MapToken token) => token.Type switch
+    {
+        TokenType.PlayerCharacter => "token-pc",
+        TokenType.Enemy => "token-enemy",
+        TokenType.NPC => "token-npc",
+        TokenType.Obstacle => "token-obstacle",
+        _ => ""
+    };
+
+    private int GetHpPercent(MapToken token)
+    {
+        if (token.Type == TokenType.PlayerCharacter && token.CharacterSheet != null)
+        {
+            if (token.CharacterSheet.MaxHP <= 0) return -1;
+            return (int)(100.0 * token.CharacterSheet.CurrentHP / token.CharacterSheet.MaxHP);
+        }
+        if (token.Type == TokenType.Enemy && token.MaxHP.HasValue && token.MaxHP > 0)
+        {
+            return (int)(100.0 * (token.CurrentHP ?? 0) / token.MaxHP.Value);
+        }
+        return -1;
+    }
+
+    private string GetHpColor(int percent) => percent switch
+    {
+        > 50 => "#6B8E23",
+        > 25 => "#DAA520",
+        _ => "#C45B4A"
+    };
+
+    private string GetTokenTooltip(MapToken token)
+    {
+        if (token.Type == TokenType.PlayerCharacter && token.CharacterSheet != null)
+            return $"{token.CharacterSheet.Name} - PV: {token.CharacterSheet.CurrentHP}/{token.CharacterSheet.MaxHP}";
+        if (token.Type == TokenType.Enemy)
+            return $"{token.Label} - PV: {token.CurrentHP}/{token.MaxHP}";
+        if (token.Type == TokenType.Obstacle)
+            return $"{token.Label} (Obstaculo)";
+        return token.Label ?? "NPC";
+    }
+
+    private async Task OnCellClicked(int x, int y)
+    {
+        // Skip if this click was actually a drop event
+        var wasDrop = await JS.InvokeAsync<bool>("tacticalMap.checkAndResetDrop");
+        if (wasDrop) return;
+
+        if (IsMaster && OnCellClick.HasDelegate)
+            await OnCellClick.InvokeAsync((x, y));
+    }
+}

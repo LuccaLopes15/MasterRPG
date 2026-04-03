@@ -1,0 +1,239 @@
+@using T20Master.Web.Data.Entities
+
+<div class="combat-board">
+    <h5 class="board-title">Combate</h5>
+
+    @* Player Characters *@
+    @foreach (var character in Characters)
+    {
+        var charId = character.Id;
+        var mods = Modifiers.Where(m => m.CharacterSheetId == charId).ToList();
+        var effectiveDefense = character.Defense + mods.Where(m => m.Target == ModifierTarget.Defense).Sum(m => m.Value);
+        var effectiveSpeed = character.Speed + mods.Where(m => m.Target == ModifierTarget.Speed).Sum(m => m.Value);
+        var effectiveMaxHP = character.MaxHP + mods.Where(m => m.Target == ModifierTarget.MaxHP).Sum(m => m.Value);
+        var effectiveMaxMP = character.MaxMP + mods.Where(m => m.Target == ModifierTarget.MaxMP).Sum(m => m.Value);
+        var hpPercent = effectiveMaxHP > 0 ? (int)(100.0 * character.CurrentHP / effectiveMaxHP) : 0;
+        var mpPercent = effectiveMaxMP > 0 ? (int)(100.0 * character.CurrentMP / effectiveMaxMP) : 0;
+
+        <div class="combat-card">
+            <div class="combat-card-header">
+                <span class="combat-name">@character.Name</span>
+                <span class="combat-race">@character.Race Nv@(character.Level)</span>
+            </div>
+
+            <div class="combat-stat-row">
+                <label>PV</label>
+                <div class="stat-bar-container">
+                    <div class="stat-bar hp-bar" style="width: @(Math.Clamp(hpPercent, 0, 100))%"></div>
+                </div>
+                @if (IsMaster)
+                {
+                    <input type="number" class="combat-input" value="@character.CurrentHP"
+                           @onchange="e => OnStatChange(charId, nameof(CharacterSheet.CurrentHP), e)" />
+                }
+                <span class="stat-text">@character.CurrentHP / @effectiveMaxHP</span>
+            </div>
+
+            <div class="combat-stat-row">
+                <label>PM</label>
+                <div class="stat-bar-container">
+                    <div class="stat-bar mp-bar" style="width: @(Math.Clamp(mpPercent, 0, 100))%"></div>
+                </div>
+                @if (IsMaster)
+                {
+                    <input type="number" class="combat-input" value="@character.CurrentMP"
+                           @onchange="e => OnStatChange(charId, nameof(CharacterSheet.CurrentMP), e)" />
+                }
+                <span class="stat-text">@character.CurrentMP / @effectiveMaxMP</span>
+            </div>
+
+            <div class="combat-stats-inline">
+                <span title="Defesa">DEF: @effectiveDefense</span>
+                <span title="Deslocamento">DES: @effectiveSpeed m</span>
+            </div>
+
+            @* Active Modifiers *@
+            @if (mods.Any())
+            {
+                <div class="modifier-list">
+                    @foreach (var mod in mods)
+                    {
+                        var modId = mod.Id;
+                        var modSign = mod.Value > 0 ? "+" : "";
+                        <span class="modifier-badge" title="@($"{mod.Source}: {modSign}{mod.Value} {mod.Target}")">
+                            @mod.Source @modSign@mod.Value
+                            @if (IsMaster)
+                            {
+                                <button class="modifier-remove" @onclick="() => RemoveModifier(modId)">x</button>
+                            }
+                        </span>
+                    }
+                </div>
+            }
+
+            @* Add Modifier (Master only) *@
+            @if (IsMaster)
+            {
+                @if (addingModifierFor == charId)
+                {
+                    <div class="modifier-form">
+                        <select class="form-select form-select-sm" @bind="newModTarget">
+                            <option value="Defense">Defesa</option>
+                            <option value="Speed">Deslocamento</option>
+                            <option value="MaxHP">PV Max</option>
+                            <option value="MaxMP">PM Max</option>
+                        </select>
+                        <input type="number" class="form-control form-control-sm" placeholder="Valor" @bind="newModValue" />
+                        <input type="text" class="form-control form-control-sm" placeholder="Fonte" @bind="newModSource" />
+                        <button class="btn btn-sm btn-primary" @onclick="() => ConfirmAddModifier(charId)">OK</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => CancelAddModifier()">X</button>
+                    </div>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => StartAddModifier(charId)">
+                        + Modifier
+                    </button>
+                }
+            }
+        </div>
+    }
+
+    @* Enemy Tokens *@
+    @foreach (var enemy in EnemyTokens)
+    {
+        var enemyId = enemy.Id;
+        var enemyMods = Modifiers.Where(m => m.MapTokenId == enemyId).ToList();
+        var enemySpeedMod = enemyMods.Where(m => m.Target == ModifierTarget.Speed).Sum(m => m.Value);
+        var effectiveEnemySpeed = (enemy.Speed ?? 0) + enemySpeedMod;
+        var enemyMaxHPMod = enemyMods.Where(m => m.Target == ModifierTarget.MaxHP).Sum(m => m.Value);
+        var effectiveEnemyMaxHP = (enemy.MaxHP ?? 0) + enemyMaxHPMod;
+        var enemyHpPercent = effectiveEnemyMaxHP > 0 ? (int)(100.0 * (enemy.CurrentHP ?? 0) / effectiveEnemyMaxHP) : 0;
+
+        <div class="combat-card combat-card-enemy">
+            <div class="combat-card-header">
+                <span class="combat-name" style="color: @(enemy.Color ?? "#C45B4A");">@enemy.Label</span>
+                <span class="combat-race">Inimigo</span>
+            </div>
+
+            <div class="combat-stat-row">
+                <label>PV</label>
+                <div class="stat-bar-container">
+                    <div class="stat-bar hp-bar" style="width: @(Math.Clamp(enemyHpPercent, 0, 100))%"></div>
+                </div>
+                @if (IsMaster)
+                {
+                    <input type="number" class="combat-input" value="@enemy.CurrentHP"
+                           @onchange="e => OnEnemyStatChange(enemyId, nameof(MapToken.CurrentHP), e)" />
+                }
+                <span class="stat-text">@enemy.CurrentHP / @effectiveEnemyMaxHP</span>
+            </div>
+
+            <div class="combat-stats-inline">
+                <span title="Deslocamento">DES: @effectiveEnemySpeed m</span>
+            </div>
+
+            @* Enemy Modifiers *@
+            @if (enemyMods.Any())
+            {
+                <div class="modifier-list">
+                    @foreach (var mod in enemyMods)
+                    {
+                        var modId = mod.Id;
+                        var modSign = mod.Value > 0 ? "+" : "";
+                        <span class="modifier-badge" title="@($"{mod.Source}: {modSign}{mod.Value} {mod.Target}")">
+                            @mod.Source @modSign@mod.Value
+                            @if (IsMaster)
+                            {
+                                <button class="modifier-remove" @onclick="() => RemoveModifier(modId)">x</button>
+                            }
+                        </span>
+                    }
+                </div>
+            }
+
+            @if (IsMaster)
+            {
+                @if (addingEnemyModifierFor == enemyId)
+                {
+                    <div class="modifier-form">
+                        <select class="form-select form-select-sm" @bind="newModTarget">
+                            <option value="Speed">Deslocamento</option>
+                            <option value="MaxHP">PV Max</option>
+                        </select>
+                        <input type="number" class="form-control form-control-sm" placeholder="Valor" @bind="newModValue" />
+                        <input type="text" class="form-control form-control-sm" placeholder="Fonte" @bind="newModSource" />
+                        <button class="btn btn-sm btn-primary" @onclick="() => ConfirmAddEnemyModifier(enemyId)">OK</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => CancelAddEnemyModifier()">X</button>
+                    </div>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => StartAddEnemyModifier(enemyId)">
+                        + Modifier
+                    </button>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<CharacterSheet> Characters { get; set; } = [];
+    [Parameter] public List<CombatModifier> Modifiers { get; set; } = [];
+    [Parameter] public List<MapToken> EnemyTokens { get; set; } = [];
+    [Parameter] public bool IsMaster { get; set; }
+    [Parameter] public EventCallback<(Guid charId, string field, int value)> OnStatChanged { get; set; }
+    [Parameter] public EventCallback<(Guid tokenId, string field, int value)> OnEnemyStatChanged { get; set; }
+    [Parameter] public EventCallback<(Guid charId, ModifierTarget target, int value, string source)> OnModifierAdd { get; set; }
+    [Parameter] public EventCallback<(Guid tokenId, ModifierTarget target, int value, string source)> OnEnemyModifierAdd { get; set; }
+    [Parameter] public EventCallback<Guid> OnModifierRemove { get; set; }
+
+    private Guid? addingModifierFor;
+    private Guid? addingEnemyModifierFor;
+    private string newModTarget = "Defense";
+    private int newModValue;
+    private string newModSource = "";
+
+    private async Task OnStatChange(Guid charId, string field, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            await OnStatChanged.InvokeAsync((charId, field, val));
+    }
+
+    private async Task OnEnemyStatChange(Guid tokenId, string field, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            await OnEnemyStatChanged.InvokeAsync((tokenId, field, val));
+    }
+
+    private void StartAddModifier(Guid charId) { addingModifierFor = charId; addingEnemyModifierFor = null; }
+    private void CancelAddModifier() => addingModifierFor = null;
+    private void StartAddEnemyModifier(Guid tokenId) { addingEnemyModifierFor = tokenId; addingModifierFor = null; }
+    private void CancelAddEnemyModifier() => addingEnemyModifierFor = null;
+
+    private async Task ConfirmAddModifier(Guid charId)
+    {
+        if (string.IsNullOrWhiteSpace(newModSource)) return;
+        var target = Enum.Parse<ModifierTarget>(newModTarget);
+        await OnModifierAdd.InvokeAsync((charId, target, newModValue, newModSource));
+        addingModifierFor = null;
+        newModValue = 0;
+        newModSource = "";
+    }
+
+    private async Task RemoveModifier(Guid modifierId)
+    {
+        await OnModifierRemove.InvokeAsync(modifierId);
+    }
+
+    private async Task ConfirmAddEnemyModifier(Guid tokenId)
+    {
+        if (string.IsNullOrWhiteSpace(newModSource)) return;
+        var target = Enum.Parse<ModifierTarget>(newModTarget);
+        await OnEnemyModifierAdd.InvokeAsync((tokenId, target, newModValue, newModSource));
+        addingEnemyModifierFor = null;
+        newModValue = 0;
+        newModSource = "";
+    }
+}

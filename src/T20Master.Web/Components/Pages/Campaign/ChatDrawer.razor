@@ -1,0 +1,137 @@
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Services.AI
+@inject GeminiChatService ChatService
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="chat-drawer-overlay" @onclick="Close"></div>
+    <div class="chat-drawer">
+        <div class="chat-drawer-header">
+            <h5 class="mb-0">Master AI</h5>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Close">&times;</button>
+        </div>
+
+        <div id="chatDrawerMessages" class="chat-drawer-messages">
+            @if (!messages.Any() && !isThinking)
+            {
+                <div class="text-center mt-4" style="color: var(--ink-muted);">
+                    <p>Pergunte sobre regras, classes, magias, combate ou qualquer coisa do T20!</p>
+                    <p><small>A IA tem acesso ao Livro Basico e as fichas dos jogadores desta campanha.</small></p>
+                </div>
+            }
+
+            @foreach (var msg in messages)
+            {
+                <div class="mb-3 @(msg.Role == "user" ? "text-end" : "")">
+                    <div class="@(msg.Role == "user" ? "chat-msg-user" : "chat-msg-ai")">
+                        @msg.Content
+                    </div>
+                </div>
+            }
+
+            @if (isThinking)
+            {
+                <div class="mb-3">
+                    <div class="chat-msg-ai"><em>Buscando nas regras...</em></div>
+                </div>
+            }
+        </div>
+
+        <div class="chat-drawer-footer">
+            <div class="input-group">
+                <input @bind="currentQuestion"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown"
+                       class="form-control form-control-sm"
+                       placeholder="Pergunte sobre regras do T20..."
+                       disabled="@isSending" />
+                <button class="btn btn-primary btn-sm" @onclick="SendQuestion"
+                        disabled="@(isSending || string.IsNullOrWhiteSpace(currentQuestion))">
+                    Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid CampaignId { get; set; }
+    [Parameter] public string UserId { get; set; } = string.Empty;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<ChatMessage> messages = [];
+    private string currentQuestion = "";
+    private bool isSending;
+    private bool isThinking;
+    private bool historyLoaded;
+    private bool pendingScroll;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && !historyLoaded && !string.IsNullOrEmpty(UserId))
+        {
+            historyLoaded = true;
+            messages = await ChatService.GetHistoryAsync(CampaignId, UserId);
+            pendingScroll = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendingScroll)
+        {
+            pendingScroll = false;
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !isSending && !string.IsNullOrWhiteSpace(currentQuestion))
+        {
+            await SendQuestion();
+        }
+    }
+
+    private async Task SendQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(currentQuestion) || isSending) return;
+
+        var question = currentQuestion.Trim();
+        currentQuestion = "";
+        isSending = true;
+        isThinking = true;
+
+        messages.Add(new ChatMessage { Role = "user", Content = question, Timestamp = DateTime.UtcNow });
+        await ScrollToBottom();
+        StateHasChanged();
+
+        var aiMessage = new ChatMessage { Role = "assistant", Content = "", Timestamp = DateTime.UtcNow };
+        messages.Add(aiMessage);
+        isThinking = false;
+        StateHasChanged();
+
+        await ChatService.StreamResponseAsync(CampaignId, UserId, question, async token =>
+        {
+            aiMessage.Content += token;
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
+        });
+
+        isSending = false;
+        StateHasChanged();
+        await ScrollToBottom();
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try { await JS.InvokeVoidAsync("scrollToBottom", "chatDrawerMessages"); } catch { }
+    }
+}

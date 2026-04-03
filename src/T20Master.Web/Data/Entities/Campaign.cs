@@ -21,4 +21,5 @@ public class Campaign
     public List<CampaignPlayer> Players { get; set; } = [];
     public List<CharacterSheet> Characters { get; set; } = [];
     public List<ChatHistory> ChatHistories { get; set; } = [];
+    public List<GameSession> GameSessions { get; set; } = [];
 }

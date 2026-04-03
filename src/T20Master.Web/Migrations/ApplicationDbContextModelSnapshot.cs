@@ -402,6 +402,123 @@ namespace T20Master.Web.Migrations
                     b.ToTable("ChatHistories");
                 });
 
+            modelBuilder.Entity("T20Master.Web.Data.Entities.CombatModifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CharacterSheetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("MapTokenId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Target")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CharacterSheetId");
+
+                    b.HasIndex("MapTokenId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("CombatModifiers");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.GameSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GridHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GridWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId", "Status")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 0");
+
+                    b.ToTable("GameSessions");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.MapToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CharacterSheetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CurrentHP")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GridX")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GridY")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Label")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MaxHP")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Speed")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CharacterSheetId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("MapTokens");
+                });
+
             modelBuilder.Entity("T20Master.Web.Data.Entities.RuleChunk", b =>
                 {
                     b.Property<Guid>("Id")
@@ -555,13 +672,76 @@ namespace T20Master.Web.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("T20Master.Web.Data.Entities.CombatModifier", b =>
+                {
+                    b.HasOne("T20Master.Web.Data.Entities.CharacterSheet", "CharacterSheet")
+                        .WithMany()
+                        .HasForeignKey("CharacterSheetId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("T20Master.Web.Data.Entities.MapToken", "MapToken")
+                        .WithMany()
+                        .HasForeignKey("MapTokenId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("T20Master.Web.Data.Entities.GameSession", "Session")
+                        .WithMany("CombatModifiers")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CharacterSheet");
+
+                    b.Navigation("MapToken");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.GameSession", b =>
+                {
+                    b.HasOne("T20Master.Web.Data.Entities.Campaign", "Campaign")
+                        .WithMany("GameSessions")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.MapToken", b =>
+                {
+                    b.HasOne("T20Master.Web.Data.Entities.CharacterSheet", "CharacterSheet")
+                        .WithMany()
+                        .HasForeignKey("CharacterSheetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("T20Master.Web.Data.Entities.GameSession", "Session")
+                        .WithMany("Tokens")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CharacterSheet");
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("T20Master.Web.Data.Entities.Campaign", b =>
                 {
                     b.Navigation("Characters");
 
                     b.Navigation("ChatHistories");
 
+                    b.Navigation("GameSessions");
+
                     b.Navigation("Players");
+                });
+
+            modelBuilder.Entity("T20Master.Web.Data.Entities.GameSession", b =>
+                {
+                    b.Navigation("CombatModifiers");
+
+                    b.Navigation("Tokens");
                 });
 #pragma warning restore 612, 618
         }

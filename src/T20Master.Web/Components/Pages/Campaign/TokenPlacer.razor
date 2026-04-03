@@ -1,0 +1,135 @@
+@using T20Master.Web.Data.Entities
+
+<div class="token-placer">
+    <div class="placer-section">
+        <h6>Personagens</h6>
+        <div class="placer-row">
+            <select class="form-select form-select-sm" @bind="selectedCharacterId">
+                <option value="">Selecione...</option>
+                @foreach (var c in AvailableCharacters)
+                {
+                    <option value="@c.Id">@c.Name (@c.Race)</option>
+                }
+            </select>
+            <button class="btn btn-sm btn-primary" disabled="@(selectedCharacterId == Guid.Empty)"
+                    @onclick="PlaceCharacter">
+                Colocar
+            </button>
+        </div>
+    </div>
+
+    <div class="placer-section">
+        <h6>Inimigo / NPC</h6>
+        <div class="placer-form">
+            <input type="text" class="form-control form-control-sm" placeholder="Nome" @bind="enemyLabel" />
+            <select class="form-select form-select-sm" @bind="enemyType">
+                <option value="Enemy">Inimigo</option>
+                <option value="NPC">NPC</option>
+            </select>
+            <div class="d-flex align-items-center gap-1">
+                <label class="form-label mb-0" style="color: var(--ink-muted); font-size: 0.75rem; white-space: nowrap;">PV:</label>
+                <input type="number" class="form-control form-control-sm" @bind="enemyHP" style="width: 70px;" />
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <label class="form-label mb-0" style="color: var(--ink-muted); font-size: 0.75rem; white-space: nowrap;">DES:</label>
+                <input type="number" class="form-control form-control-sm" @bind="enemySpeed" step="1.5" style="width: 70px;" />
+            </div>
+            <input type="color" class="form-control form-control-sm form-control-color" @bind="enemyColor"
+                   title="Cor do token" style="width: 40px; padding: 2px;" />
+            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(enemyLabel)"
+                    @onclick="PlaceEnemy">
+                Colocar
+            </button>
+        </div>
+    </div>
+
+    <div class="placer-section">
+        <h6>Obstaculo</h6>
+        <div class="placer-form">
+            <input type="text" class="form-control form-control-sm" placeholder="Nome (ex: Muro, Pilar)" @bind="obstacleLabel" />
+            <input type="color" class="form-control form-control-sm form-control-color" @bind="obstacleColor"
+                   title="Cor do obstaculo" style="width: 40px; padding: 2px;" />
+            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(obstacleLabel)"
+                    @onclick="PlaceObstacle">
+                Colocar
+            </button>
+        </div>
+    </div>
+
+    <div class="placer-section">
+        <button class="btn btn-sm btn-outline-danger" @onclick="RequestClearMap">
+            @(confirmingClear ? "Confirmar?" : "Limpar Mapa")
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<CharacterSheet> AvailableCharacters { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnPlaceCharacter { get; set; }
+    [Parameter] public EventCallback<MapToken> OnPlaceEnemy { get; set; }
+    [Parameter] public EventCallback OnClearMap { get; set; }
+
+    private Guid selectedCharacterId;
+    private string enemyLabel = "";
+    private string enemyType = "Enemy";
+    private int enemyHP = 20;
+    private decimal enemySpeed = 9m;
+    private string enemyColor = "#C45B4A";
+
+    private string obstacleLabel = "";
+    private string obstacleColor = "#555555";
+
+    private async Task PlaceCharacter()
+    {
+        if (selectedCharacterId == Guid.Empty) return;
+        await OnPlaceCharacter.InvokeAsync(selectedCharacterId);
+        selectedCharacterId = Guid.Empty;
+    }
+
+    private async Task PlaceEnemy()
+    {
+        if (string.IsNullOrWhiteSpace(enemyLabel)) return;
+
+        var token = new MapToken
+        {
+            Type = enemyType == "NPC" ? TokenType.NPC : TokenType.Enemy,
+            Label = enemyLabel,
+            MaxHP = enemyType == "NPC" ? null : enemyHP,
+            CurrentHP = enemyType == "NPC" ? null : enemyHP,
+            Speed = enemyType == "NPC" ? null : enemySpeed,
+            Color = enemyColor
+        };
+
+        await OnPlaceEnemy.InvokeAsync(token);
+        enemyLabel = "";
+        enemyHP = 20;
+    }
+
+    private async Task PlaceObstacle()
+    {
+        if (string.IsNullOrWhiteSpace(obstacleLabel)) return;
+
+        var token = new MapToken
+        {
+            Type = TokenType.Obstacle,
+            Label = obstacleLabel,
+            Color = obstacleColor
+        };
+
+        await OnPlaceEnemy.InvokeAsync(token);
+        obstacleLabel = "";
+    }
+
+    private bool confirmingClear;
+
+    private async Task RequestClearMap()
+    {
+        if (!confirmingClear)
+        {
+            confirmingClear = true;
+            return;
+        }
+        confirmingClear = false;
+        await OnClearMap.InvokeAsync();
+    }
+}

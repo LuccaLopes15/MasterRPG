@@ -75,6 +75,8 @@ public class CharacterService
 
     public async Task<bool> UpdateCharacterAsync(Guid characterId, string userId, CharacterSheet updated)
     {
+        _db.ChangeTracker.Clear();
+
         var character = await _db.CharacterSheets
             .Include(c => c.Campaign)
             .FirstOrDefaultAsync(c => c.Id == characterId);

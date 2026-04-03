@@ -1,0 +1,416 @@
+@page "/campaign/{CampaignId:guid}/session"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.SignalR.Client
+@using T20Master.Web.Data.Entities
+@using T20Master.Web.Services
+@inject GameSessionService SessionService
+@inject MapService MapService
+@inject CombatBoardService CombatBoardService
+@inject CampaignService CampaignService
+@inject CharacterService CharacterService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Sessao - @(campaign?.Name ?? "Carregando")</PageTitle>
+
+@if (session == null)
+{
+    <p>Carregando sessao...</p>
+}
+else
+{
+    <div class="session-header">
+        <div class="d-flex align-items-center gap-3">
+            <a href="/campaign/@CampaignId" class="btn btn-outline-secondary btn-sm">Voltar</a>
+            <h4 class="mb-0">@campaign?.Name</h4>
+            <span class="badge @(session.Mode == SceneMode.Combat ? "bg-danger" : "bg-success")">
+                @(session.Mode == SceneMode.Combat ? "Combate" : "Exploracao")
+            </span>
+        </div>
+        @if (isMaster)
+        {
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-warning" @onclick="() => showChat = !showChat">
+                    Master AI
+                </button>
+                <button class="btn btn-sm @(session.Mode == SceneMode.Combat ? "btn-outline-success" : "btn-outline-danger")"
+                        @onclick="ToggleMode">
+                    @(session.Mode == SceneMode.Combat ? "Modo Exploracao" : "Modo Combate")
+                </button>
+            </div>
+        }
+    </div>
+
+    <div class="session-layout @(session.Mode == SceneMode.Combat ? "with-board" : "")">
+        <div class="map-area">
+            @if (isMaster)
+            {
+                <TokenPlacer AvailableCharacters="availableCharacters"
+                             OnPlaceCharacter="HandlePlaceCharacter"
+                             OnPlaceEnemy="HandlePlaceEnemy"
+                             OnClearMap="HandleClearMap" />
+            }
+
+            <TacticalMap GridWidth="session.GridWidth"
+                         GridHeight="session.GridHeight"
+                         Tokens="session.Tokens"
+                         IsMaster="isMaster"
+                         OnCellClick="HandleCellClick" />
+        </div>
+
+        @if (session.Mode == SceneMode.Combat)
+        {
+            <div class="board-area">
+                <CombatBoard Characters="campaignCharacters"
+                             Modifiers="session.CombatModifiers"
+                             EnemyTokens="session.Tokens.Where(t => t.Type == TokenType.Enemy).ToList()"
+                             IsMaster="isMaster"
+                             OnStatChanged="HandleStatChanged"
+                             OnEnemyStatChanged="HandleEnemyStatChanged"
+                             OnModifierAdd="HandleModifierAdd"
+                             OnEnemyModifierAdd="HandleEnemyModifierAdd"
+                             OnModifierRemove="HandleModifierRemove" />
+            </div>
+        }
+    </div>
+}
+
+@if (showCopiedToast)
+{
+    <div class="toast-copied">@toastMessage</div>
+}
+
+<ChatDrawer CampaignId="CampaignId" UserId="@userId" IsOpen="showChat" OnClose="() => showChat = false" />
+
+@code {
+    private bool showChat;
+    [Parameter] public Guid CampaignId { get; set; }
+
+    private Campaign? campaign;
+    private GameSession? session;
+    private string userId = string.Empty;
+    private bool isMaster;
+    private List<CharacterSheet> campaignCharacters = [];
+    private List<CharacterSheet> availableCharacters = [];
+    private HubConnection? hubConnection;
+    private bool showCopiedToast;
+    private string toastMessage = "";
+
+    private Guid? pendingCharacterId;
+    private MapToken? pendingEnemyToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        campaign = await CampaignService.GetCampaignAsync(CampaignId, userId);
+        if (campaign == null)
+        {
+            Navigation.NavigateTo("/dashboard", forceLoad: true);
+            return;
+        }
+
+        isMaster = CampaignService.IsMaster(campaign, userId);
+        session = await SessionService.GetActiveSessionAsync(CampaignId);
+
+        if (session == null)
+        {
+            Navigation.NavigateTo($"/campaign/{CampaignId}", forceLoad: true);
+            return;
+        }
+
+        campaignCharacters = campaign.Characters.ToList();
+        UpdateAvailableCharacters();
+
+        // SignalR connection
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/session"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        RegisterHubHandlers();
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("JoinSession", CampaignId);
+    }
+
+    private bool jsInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!jsInitialized && session != null)
+        {
+            jsInitialized = true;
+            await JS.InvokeVoidAsync("eval", "document.body.classList.add('fullscreen')");
+            var dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("tacticalMap.init", dotNetRef, isMaster);
+        }
+    }
+
+    private void RegisterHubHandlers()
+    {
+        if (hubConnection == null) return;
+
+        hubConnection.On<Guid, int, int>("TokenMoved", (tokenId, x, y) =>
+        {
+            var token = session?.Tokens.FirstOrDefault(t => t.Id == tokenId);
+            if (token != null) { token.GridX = x; token.GridY = y; }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("TokenAdded", (System.Text.Json.JsonElement data) =>
+        {
+            var id = data.GetProperty("id").GetGuid();
+            var typeStr = data.GetProperty("type").GetString() ?? "Enemy";
+            Enum.TryParse<TokenType>(typeStr, out var type);
+
+            var token = new MapToken
+            {
+                Id = id,
+                SessionId = session?.Id ?? Guid.Empty,
+                Type = type,
+                GridX = data.GetProperty("gridX").GetInt32(),
+                GridY = data.GetProperty("gridY").GetInt32(),
+                CharacterSheetId = data.TryGetProperty("characterSheetId", out var csId) && csId.ValueKind != System.Text.Json.JsonValueKind.Null ? csId.GetGuid() : null,
+                Label = data.TryGetProperty("label", out var lbl) && lbl.ValueKind != System.Text.Json.JsonValueKind.Null ? lbl.GetString() : null,
+                MaxHP = data.TryGetProperty("maxHP", out var mhp) && mhp.ValueKind != System.Text.Json.JsonValueKind.Null ? mhp.GetInt32() : null,
+                CurrentHP = data.TryGetProperty("currentHP", out var chp) && chp.ValueKind != System.Text.Json.JsonValueKind.Null ? chp.GetInt32() : null,
+                Speed = data.TryGetProperty("speed", out var spd) && spd.ValueKind != System.Text.Json.JsonValueKind.Null ? spd.GetDecimal() : null,
+                Color = data.TryGetProperty("color", out var clr) && clr.ValueKind != System.Text.Json.JsonValueKind.Null ? clr.GetString() : null
+            };
+
+            // Vincular CharacterSheet se for PC
+            if (token.CharacterSheetId.HasValue)
+            {
+                token.CharacterSheet = campaignCharacters.FirstOrDefault(c => c.Id == token.CharacterSheetId);
+                var charName = data.TryGetProperty("characterName", out var cn) ? cn.GetString() : null;
+            }
+
+            session?.Tokens.Add(token);
+            UpdateAvailableCharacters();
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid>("TokenRemoved", (tokenId) =>
+        {
+            session?.Tokens.RemoveAll(t => t.Id == tokenId);
+            UpdateAvailableCharacters();
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("MapCleared", () =>
+        {
+            session?.Tokens.Clear();
+            UpdateAvailableCharacters();
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid, string, int>("StatsUpdated", (charId, field, value) =>
+        {
+            var character = campaignCharacters.FirstOrDefault(c => c.Id == charId);
+            if (character != null)
+            {
+                switch (field)
+                {
+                    case "CurrentHP": character.CurrentHP = value; break;
+                    case "CurrentMP": character.CurrentMP = value; break;
+                    case "Defense": character.Defense = value; break;
+                    case "Speed": character.Speed = value; break;
+                    case "MaxHP": character.MaxHP = value; break;
+                    case "MaxMP": character.MaxMP = value; break;
+                }
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid, string, int>("EnemyStatsUpdated", (tokenId, field, value) =>
+        {
+            var token = session?.Tokens.FirstOrDefault(t => t.Id == tokenId);
+            if (token != null)
+            {
+                switch (field)
+                {
+                    case "CurrentHP": token.CurrentHP = value; break;
+                    case "MaxHP": token.MaxHP = value; break;
+                }
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("ModifierAdded", (System.Text.Json.JsonElement data) =>
+        {
+            var mod = new CombatModifier
+            {
+                Id = data.GetProperty("id").GetGuid(),
+                SessionId = data.GetProperty("sessionId").GetGuid(),
+                CharacterSheetId = data.TryGetProperty("characterSheetId", out var csid) && csid.ValueKind != System.Text.Json.JsonValueKind.Null ? csid.GetGuid() : null,
+                MapTokenId = data.TryGetProperty("mapTokenId", out var mtid) && mtid.ValueKind != System.Text.Json.JsonValueKind.Null ? mtid.GetGuid() : null,
+                Target = Enum.Parse<ModifierTarget>(data.GetProperty("target").GetString() ?? "Defense"),
+                Value = data.GetProperty("value").GetInt32(),
+                Source = data.GetProperty("source").GetString() ?? ""
+            };
+            session?.CombatModifiers.Add(mod);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid>("ModifierRemoved", (modId) =>
+        {
+            session?.CombatModifiers.RemoveAll(m => m.Id == modId);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("SessionEnded", () =>
+        {
+            InvokeAsync(() => Navigation.NavigateTo($"/campaign/{CampaignId}", forceLoad: true));
+        });
+
+        hubConnection.On<string>("ModeChanged", (mode) =>
+        {
+            if (session != null && Enum.TryParse<SceneMode>(mode, out var m))
+                session.Mode = m;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    // --- Mestre Actions ---
+
+    private async Task ToggleMode()
+    {
+        if (session == null) return;
+        var newMode = session.Mode == SceneMode.Combat ? SceneMode.Exploration : SceneMode.Combat;
+        await SessionService.SetModeAsync(session.Id, userId, newMode);
+    }
+
+    private async Task HandleCellClick((int x, int y) pos)
+    {
+        if (pendingCharacterId.HasValue)
+        {
+            var token = new MapToken
+            {
+                Type = TokenType.PlayerCharacter,
+                CharacterSheetId = pendingCharacterId.Value,
+                GridX = pos.x,
+                GridY = pos.y
+            };
+            await MapService.PlaceTokenAsync(session!.Id, userId, token);
+            pendingCharacterId = null;
+            await ShowToast("Token colocado!");
+        }
+        else if (pendingEnemyToken != null)
+        {
+            pendingEnemyToken.GridX = pos.x;
+            pendingEnemyToken.GridY = pos.y;
+            await MapService.PlaceTokenAsync(session!.Id, userId, pendingEnemyToken);
+            pendingEnemyToken = null;
+            await ShowToast("Token colocado!");
+        }
+    }
+
+    private async Task HandlePlaceCharacter(Guid characterId)
+    {
+        pendingCharacterId = characterId;
+        pendingEnemyToken = null;
+        await ShowToast("Clique no mapa para posicionar");
+    }
+
+    private async Task HandlePlaceEnemy(MapToken enemyToken)
+    {
+        pendingEnemyToken = enemyToken;
+        pendingCharacterId = null;
+        await ShowToast("Clique no mapa para posicionar");
+    }
+
+    private async Task HandleClearMap()
+    {
+        if (session == null) return;
+        await MapService.ClearMapAsync(session.Id, userId);
+    }
+
+    private async Task HandleStatChanged((Guid charId, string field, int value) args)
+    {
+        await CombatBoardService.UpdateStatAsync(args.charId, userId, args.field, args.value, CampaignId);
+    }
+
+    private async Task HandleEnemyStatChanged((Guid tokenId, string field, int value) args)
+    {
+        await CombatBoardService.UpdateEnemyStatAsync(args.tokenId, userId, args.field, args.value, CampaignId);
+    }
+
+    private async Task HandleModifierAdd((Guid charId, ModifierTarget target, int value, string source) args)
+    {
+        var modifier = new CombatModifier
+        {
+            SessionId = session!.Id,
+            CharacterSheetId = args.charId,
+            Target = args.target,
+            Value = args.value,
+            Source = args.source
+        };
+        await CombatBoardService.AddModifierAsync(modifier, userId, CampaignId);
+    }
+
+    private async Task HandleEnemyModifierAdd((Guid tokenId, ModifierTarget target, int value, string source) args)
+    {
+        var modifier = new CombatModifier
+        {
+            SessionId = session!.Id,
+            MapTokenId = args.tokenId,
+            Target = args.target,
+            Value = args.value,
+            Source = args.source
+        };
+        await CombatBoardService.AddModifierAsync(modifier, userId, CampaignId);
+    }
+
+    private async Task HandleModifierRemove(Guid modifierId)
+    {
+        await CombatBoardService.RemoveModifierAsync(modifierId, userId, CampaignId);
+    }
+
+    [JSInvokable]
+    public async Task OnTokenDropped(string tokenId, int x, int y)
+    {
+        if (!isMaster || !Guid.TryParse(tokenId, out var id)) return;
+        await MapService.MoveTokenAsync(id, userId, x, y);
+    }
+
+    private void UpdateAvailableCharacters()
+    {
+        var placedIds = session?.Tokens
+            .Where(t => t.CharacterSheetId.HasValue)
+            .Select(t => t.CharacterSheetId!.Value)
+            .ToHashSet() ?? [];
+
+        availableCharacters = campaignCharacters
+            .Where(c => !placedIds.Contains(c.Id))
+            .ToList();
+    }
+
+    private async Task ShowToast(string message)
+    {
+        toastMessage = message;
+        showCopiedToast = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        showCopiedToast = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("eval", "document.body.classList.remove('fullscreen')"); } catch { }
+        if (hubConnection != null)
+        {
+            try
+            {
+                await hubConnection.InvokeAsync("LeaveSession", CampaignId);
+                await hubConnection.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+}

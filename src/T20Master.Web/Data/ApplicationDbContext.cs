@@ -16,6 +16,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CharacterSheet> CharacterSheets => Set<CharacterSheet>();
     public DbSet<RuleChunk> RuleChunks => Set<RuleChunk>();
     public DbSet<ChatHistory> ChatHistories => Set<ChatHistory>();
+    public DbSet<GameSession> GameSessions => Set<GameSession>();
+    public DbSet<MapToken> MapTokens => Set<MapToken>();
+    public DbSet<CombatModifier> CombatModifiers => Set<CombatModifier>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -85,6 +88,52 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Restrict);
 
             e.Property(ch => ch.Messages).HasColumnType("jsonb");
+        });
+
+        // GameSession
+        modelBuilder.Entity<GameSession>(e =>
+        {
+            e.HasOne(gs => gs.Campaign)
+                .WithMany(c => c.GameSessions)
+                .HasForeignKey(gs => gs.CampaignId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(gs => new { gs.CampaignId, gs.Status })
+                .HasFilter("\"Status\" = 0")
+                .IsUnique();
+        });
+
+        // MapToken
+        modelBuilder.Entity<MapToken>(e =>
+        {
+            e.HasOne(mt => mt.Session)
+                .WithMany(gs => gs.Tokens)
+                .HasForeignKey(mt => mt.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(mt => mt.CharacterSheet)
+                .WithMany()
+                .HasForeignKey(mt => mt.CharacterSheetId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // CombatModifier
+        modelBuilder.Entity<CombatModifier>(e =>
+        {
+            e.HasOne(cm => cm.Session)
+                .WithMany(gs => gs.CombatModifiers)
+                .HasForeignKey(cm => cm.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(cm => cm.CharacterSheet)
+                .WithMany()
+                .HasForeignKey(cm => cm.CharacterSheetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(cm => cm.MapToken)
+                .WithMany()
+                .HasForeignKey(cm => cm.MapTokenId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

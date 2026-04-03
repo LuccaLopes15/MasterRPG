@@ -4,6 +4,7 @@
 @using T20Master.Web.Data.Entities
 @using T20Master.Web.Services
 @inject CampaignService CampaignService
+@inject GameSessionService SessionService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -55,13 +56,23 @@ else
 
         <div class="d-flex gap-2 mb-4">
             <a href="/campaign/@CampaignId/characters" class="btn btn-outline-primary">Ver Fichas</a>
-            <a href="/campaign/@CampaignId/ai" class="btn btn-outline-success">Chat IA</a>
+            <button class="btn btn-outline-success" @onclick="() => showChat = !showChat">Master AI</button>
+
+            @if (activeSession != null)
+            {
+                <a href="/campaign/@CampaignId/session" class="btn btn-primary">Entrar na Sessao</a>
+                <button class="btn btn-outline-danger btn-sm" @onclick="EndSession">Encerrar Sessao</button>
+            }
+            else
+            {
+                <button class="btn btn-primary" @onclick="StartSession">Iniciar Sessao</button>
+            }
         </div>
     }
     else
     {
         var myCharacter = campaign.Characters.FirstOrDefault(c => c.PlayerId == userId);
-        <div class="mb-4">
+        <div class="mb-4 d-flex gap-2">
             @if (myCharacter != null)
             {
                 <a href="/campaign/@CampaignId/character/@myCharacter.Id" class="btn btn-primary">Minha Ficha</a>
@@ -70,6 +81,11 @@ else
             {
                 <a href="/campaign/@CampaignId/character/create" class="btn btn-primary">Criar Ficha</a>
             }
+
+            @if (activeSession != null)
+            {
+                <a href="/campaign/@CampaignId/session" class="btn btn-outline-primary">Entrar na Sessao</a>
+            }
         </div>
     }
 
@@ -77,6 +93,8 @@ else
     {
         <div class="toast-copied">Copiado!</div>
     }
+
+    <ChatDrawer CampaignId="CampaignId" UserId="@userId" IsOpen="showChat" OnClose="() => showChat = false" />
 
     <h5>Jogadores (@(campaign.Players.Count + 1))</h5>
     <ul class="list-group">
@@ -99,6 +117,8 @@ else
     private string userId = string.Empty;
     private bool isMaster;
     private bool showCopiedToast;
+    private bool showChat;
+    private T20Master.Web.Data.Entities.GameSession? activeSession;
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,6 +133,7 @@ else
         }
 
         isMaster = CampaignService.IsMaster(campaign, userId);
+        activeSession = await SessionService.GetActiveSessionAsync(CampaignId);
     }
 
     private string GetInviteUrl()
@@ -138,6 +159,19 @@ else
             await CampaignService.UpdateStatusAsync(CampaignId, userId, status);
             campaign!.Status = status;
         }
+    }
+
+    private async Task StartSession()
+    {
+        activeSession = await SessionService.StartSessionAsync(CampaignId, userId);
+        Navigation.NavigateTo($"/campaign/{CampaignId}/session", forceLoad: true);
+    }
+
+    private async Task EndSession()
+    {
+        if (activeSession == null) return;
+        await SessionService.EndSessionAsync(activeSession.Id, userId);
+        activeSession = null;
     }
 
     private string GetStatusBadge(CampaignStatus status) => status switch
