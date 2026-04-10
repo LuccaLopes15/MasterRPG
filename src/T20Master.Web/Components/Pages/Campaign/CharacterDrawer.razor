@@ -120,14 +120,19 @@
 
                 @* Pericias treinadas *@
                 @{
-                    var skills = DeserializeSkills(selectedCharacter.Skills).Where(s => s.Trained).ToList();
+                    var skills = DeserializeSkills(selectedCharacter.Skills).Where(s => s.Bonus != 0).ToList();
                 }
                 @if (skills.Any())
                 {
                     <div class="char-section">
                         <div class="char-section-title">Pericias Treinadas</div>
-                        <div style="color: var(--ink-secondary); font-size: 0.85rem;">
-                            @string.Join(", ", skills.Select(s => s.Name))
+                        <div class="skill-list">
+                            @foreach (var s in skills)
+                            {
+                                <span class="skill-pill">
+                                    @s.Name <strong>@FormatBonus(s.Bonus)</strong>
+                                </span>
+                            }
                         </div>
                     </div>
                 }
@@ -288,6 +293,8 @@
     {
         await OnClose.InvokeAsync();
     }
+
+    private string FormatBonus(int bonus) => bonus >= 0 ? $"+{bonus}" : $"{bonus}";
 
     private List<ClassEntry> DeserializeClasses(string json)
     {
