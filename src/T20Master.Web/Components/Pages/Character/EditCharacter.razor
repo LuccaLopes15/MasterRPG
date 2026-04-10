@@ -20,7 +20,10 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>@character.Name</h3>
-        <a href="/campaign/@CampaignId" class="btn btn-outline-secondary btn-sm">Voltar</a>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" @onclick="SaveCharacter">Salvar Ficha</button>
+            <a href="/campaign/@CampaignId" class="btn btn-outline-secondary btn-sm">Voltar</a>
+        </div>
     </div>
 
     @if (saved)
@@ -171,11 +174,9 @@ else
             <div class="row">
                 @foreach (var skill in skillEntries)
                 {
-                    <div class="col-md-4 mb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" @bind="skill.Trained" />
-                            <label class="form-check-label">@skill.Name</label>
-                        </div>
+                    <div class="col-md-6 mb-2 d-flex align-items-center gap-2">
+                        <label class="flex-grow-1 mb-0">@skill.Name</label>
+                        <input type="number" @bind="skill.Bonus" class="form-control form-control-sm" style="width: 70px;" />
                     </div>
                 }
             </div>
@@ -269,10 +270,6 @@ else
             <textarea @bind="character.Notes" class="form-control" rows="10" placeholder="Anotacoes livres..."></textarea>
             break;
     }
-
-    <div class="mt-4">
-        <button class="btn btn-primary" @onclick="SaveCharacter">Salvar Ficha</button>
-    </div>
 }
 
 @code {

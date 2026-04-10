@@ -319,6 +319,9 @@ textarea.form-control {
     color: var(--ink-primary);
     border-color: var(--border-subtle);
     --bs-table-bg: transparent;
+    --bs-table-color: var(--ink-primary);
+    --bs-table-hover-color: var(--ink-primary);
+    --bs-table-striped-color: var(--ink-primary);
 }
 .table th {
     color: var(--ink-secondary);
@@ -330,6 +333,7 @@ textarea.form-control {
     padding: var(--space-3) var(--space-4);
 }
 .table td {
+    color: var(--ink-primary);
     border-bottom-color: var(--border-subtle);
     padding: var(--space-3) var(--space-4);
     font-size: 0.9rem;
@@ -541,8 +545,40 @@ textarea.form-control {
     color: var(--ink-primary);
     max-width: 85%;
     text-align: left;
-    white-space: pre-wrap;
     font-size: 0.9rem;
+}
+.chat-msg-ai p { margin: 0 0 0.5em 0; }
+.chat-msg-ai p:last-child { margin-bottom: 0; }
+.chat-msg-ai strong { color: var(--pale-gold); font-weight: 700; }
+.chat-msg-ai em { color: var(--medium-gold); font-style: italic; }
+.chat-msg-ai ul, .chat-msg-ai ol { margin: 0.3em 0; padding-left: 1.5em; }
+.chat-msg-ai li { margin: 0.15em 0; }
+.chat-msg-ai code {
+    background: var(--surface-base);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    color: var(--pale-gold);
+}
+.chat-msg-ai pre {
+    background: var(--surface-base);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+.chat-msg-ai pre code { background: transparent; padding: 0; }
+.chat-msg-ai h1, .chat-msg-ai h2, .chat-msg-ai h3, .chat-msg-ai h4 {
+    color: var(--antique-gold);
+    margin: 0.5em 0 0.3em 0;
+    font-size: 1em;
+    font-weight: 700;
+}
+.chat-msg-ai blockquote {
+    border-left: 3px solid var(--copper);
+    padding-left: var(--space-2);
+    margin: 0.5em 0;
+    color: var(--ink-secondary);
 }
 
 /* Character Drawer */
@@ -629,6 +665,23 @@ textarea.form-control {
     padding: 4px 0;
     font-size: 0.85rem;
     color: var(--ink-primary);
+}
+.skill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.skill-pill {
+    background: var(--surface-300);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: var(--ink-primary);
+    border: 1px solid var(--border-subtle);
+}
+.skill-pill strong {
+    color: var(--pale-gold);
+    margin-left: 4px;
 }
 
 /* ============================================
