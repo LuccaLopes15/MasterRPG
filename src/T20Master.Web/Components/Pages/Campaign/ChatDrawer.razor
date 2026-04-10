@@ -1,3 +1,4 @@
+@using Markdig
 @using T20Master.Web.Data.Entities
 @using T20Master.Web.Services.AI
 @inject GeminiChatService ChatService
@@ -25,7 +26,14 @@
             {
                 <div class="mb-3 @(msg.Role == "user" ? "text-end" : "")">
                     <div class="@(msg.Role == "user" ? "chat-msg-user" : "chat-msg-ai")">
-                        @msg.Content
+                        @if (msg.Role == "user")
+                        {
+                            @msg.Content
+                        }
+                        else
+                        {
+                            @((MarkupString)RenderMarkdown(msg.Content))
+                        }
                     </div>
                 </div>
             }
@@ -67,6 +75,12 @@
     private bool isThinking;
     private bool historyLoaded;
     private bool pendingScroll;
+
+    private static readonly MarkdownPipeline MarkdownPipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+
+    private string RenderMarkdown(string content) =>
+        string.IsNullOrWhiteSpace(content) ? "" : Markdown.ToHtml(content, MarkdownPipeline);
 
     protected override async Task OnParametersSetAsync()
     {
