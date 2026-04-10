@@ -142,23 +142,28 @@ else
 
         campaignCharacters = campaign.Characters.ToList();
         UpdateAvailableCharacters();
-
-        // SignalR connection
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/session"))
-            .WithAutomaticReconnect()
-            .Build();
-
-        RegisterHubHandlers();
-
-        await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("JoinSession", CampaignId);
     }
 
     private bool jsInitialized;
+    private bool hubInitialized;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // SignalR connection — only in interactive mode (not during SSR prerender)
+        if (!hubInitialized && session != null)
+        {
+            hubInitialized = true;
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/hubs/session"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            RegisterHubHandlers();
+
+            await hubConnection.StartAsync();
+            await hubConnection.InvokeAsync("JoinSession", CampaignId);
+        }
+
         if (!jsInitialized && session != null)
         {
             jsInitialized = true;
