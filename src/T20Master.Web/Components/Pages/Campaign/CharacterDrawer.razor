@@ -178,6 +178,23 @@
                                 {
                                     <span style="color: var(--ink-muted);"> (@s.Circle o circulo)</span>
                                 }
+                                @if (!string.IsNullOrEmpty(s.Damage) || !string.IsNullOrEmpty(s.ManaCost))
+                                {
+                                    <div style="color: var(--ink-muted); font-size: 0.8rem;">
+                                        @if (!string.IsNullOrEmpty(s.Damage))
+                                        {
+                                            <span>Dano: @s.Damage</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(s.Damage) && !string.IsNullOrEmpty(s.ManaCost))
+                                        {
+                                            <span> | </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(s.ManaCost))
+                                        {
+                                            <span>PM: @s.ManaCost</span>
+                                        }
+                                    </div>
+                                }
                                 @if (!string.IsNullOrEmpty(s.Description))
                                 {
                                     <div style="color: var(--ink-secondary); font-size: 0.8rem;">@s.Description</div>

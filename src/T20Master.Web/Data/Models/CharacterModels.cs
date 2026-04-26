@@ -26,6 +26,8 @@ public class SpellEntry
     public string Name { get; set; } = string.Empty;
     public int Circle { get; set; } = 1;
     public string School { get; set; } = string.Empty;
+    public string Damage { get; set; } = string.Empty;
+    public string ManaCost { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
 }
 

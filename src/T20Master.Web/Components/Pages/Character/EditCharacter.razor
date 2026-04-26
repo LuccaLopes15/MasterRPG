@@ -267,16 +267,22 @@ else
                 <div class="card mb-2">
                     <div class="card-body p-2">
                         <div class="row g-2">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <input @bind="spellEntries[idx].Name" class="form-control form-control-sm" placeholder="Nome" />
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-1">
                                 <input type="number" @bind="spellEntries[idx].Circle" class="form-control form-control-sm" min="1" max="5" placeholder="Circulo" />
                             </div>
                             <div class="col-md-2">
                                 <input @bind="spellEntries[idx].School" class="form-control form-control-sm" placeholder="Escola" />
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-2">
+                                <input @bind="spellEntries[idx].Damage" class="form-control form-control-sm" placeholder="Dano: 2 D6" />
+                            </div>
+                            <div class="col-md-2">
+                                <input @bind="spellEntries[idx].ManaCost" class="form-control form-control-sm" placeholder="Custo PM" />
+                            </div>
+                            <div class="col-md-2">
                                 <input @bind="spellEntries[idx].Description" class="form-control form-control-sm" placeholder="Descricao" />
                             </div>
                             <div class="col-md-1">
