@@ -10,6 +10,9 @@ public class CharacterSheet
     public string Race { get; set; } = string.Empty;
     public int Level { get; set; } = 1;
     public int XP { get; set; }
+    public int CopperCoins { get; set; }
+    public int SilverCoins { get; set; }
+    public int GoldCoins { get; set; }
 
     // Atributos
     public int Strength { get; set; } = 10;

@@ -65,3 +65,4 @@ CLAUDE.md
 docker-compose.override.yml
 /.dockerignore
 /AGENTS.md
+/.dotnet/.dotnet

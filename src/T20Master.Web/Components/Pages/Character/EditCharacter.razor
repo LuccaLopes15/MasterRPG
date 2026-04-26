@@ -68,6 +68,20 @@ else
                     <label class="form-label">XP</label>
                     <input type="number" @bind="character.XP" class="form-control" min="0" />
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label">TC</label>
+                    <input type="number" @bind="character.CopperCoins" class="form-control" min="0" />
+                    <div class="form-text currency-help">1 TC = 1/10 T$</div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">T$</label>
+                    <input type="number" @bind="character.SilverCoins" class="form-control" min="0" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">TO</label>
+                    <input type="number" @bind="character.GoldCoins" class="form-control" min="0" />
+                    <div class="form-text currency-help">1 TO = 10 T$</div>
+                </div>
             </div>
             break;
 

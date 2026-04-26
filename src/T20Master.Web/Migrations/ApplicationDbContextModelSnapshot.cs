@@ -295,6 +295,9 @@ namespace T20Master.Web.Migrations
                     b.Property<int>("Constitution")
                         .HasColumnType("integer");
 
+                    b.Property<int>("CopperCoins")
+                        .HasColumnType("integer");
+
                     b.Property<int>("CurrentHP")
                         .HasColumnType("integer");
 
@@ -310,6 +313,9 @@ namespace T20Master.Web.Migrations
                     b.Property<string>("Equipment")
                         .IsRequired()
                         .HasColumnType("jsonb");
+
+                    b.Property<int>("GoldCoins")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Intelligence")
                         .HasColumnType("integer");
@@ -337,6 +343,9 @@ namespace T20Master.Web.Migrations
                     b.Property<string>("Race")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SilverCoins")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Skills")
                         .IsRequired()

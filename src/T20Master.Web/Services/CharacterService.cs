@@ -88,6 +88,9 @@ public class CharacterService
         character.Race = updated.Race;
         character.Level = updated.Level;
         character.XP = updated.XP;
+        character.CopperCoins = updated.CopperCoins;
+        character.SilverCoins = updated.SilverCoins;
+        character.GoldCoins = updated.GoldCoins;
         character.Strength = updated.Strength;
         character.Dexterity = updated.Dexterity;
         character.Constitution = updated.Constitution;
