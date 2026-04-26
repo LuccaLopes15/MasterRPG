@@ -11,6 +11,7 @@ public class SkillEntry
     public string Name { get; set; } = string.Empty;
     public bool Trained { get; set; }
     public int Bonus { get; set; }
+    public string Specialty { get; set; } = string.Empty;
 }
 
 public class AbilityEntry

@@ -64,3 +64,4 @@ CLAUDE.md
 ## Docker
 docker-compose.override.yml
 /.dockerignore
+/AGENTS.md

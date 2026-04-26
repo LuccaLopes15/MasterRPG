@@ -171,13 +171,51 @@ else
             break;
 
         case "Pericias":
-            <div class="row">
-                @foreach (var skill in skillEntries)
+            <div class="skill-groups">
+                @foreach (var skillAttribute in T20Reference.SkillAttributes)
                 {
-                    <div class="col-md-6 mb-2 d-flex align-items-center gap-2">
-                        <label class="flex-grow-1 mb-0">@skill.Name</label>
-                        <input type="number" @bind="skill.Bonus" class="form-control form-control-sm" style="width: 70px;" />
-                    </div>
+                    var definitions = T20Reference.SkillDefinitions.Where(skill => skill.Attribute == skillAttribute);
+
+                    <section class="skill-group">
+                        <div class="skill-group-title">@skillAttribute</div>
+                        <div class="skill-group-list">
+                            @foreach (var definition in definitions)
+                            {
+                                var skill = GetSkillEntry(definition.Name);
+
+                                <div class="skill-row @(skill.Name == "Oficio" ? "has-specialty" : "")">
+                                    <label class="skill-name" for="@GetSkillBonusId(skill.Name)">@definition.DisplayName</label>
+                                    <label class="skill-trained form-check" title="Treinada">
+                                        <input class="form-check-input" type="checkbox" aria-label="@($"{definition.DisplayName} treinada")" @bind="skill.Trained" />
+                                    </label>
+                                    @if (skill.Name == "Oficio")
+                                    {
+                                        <input @bind="skill.Specialty" class="form-control form-control-sm skill-specialty" placeholder="Ex.: Armeiro" />
+                                    }
+                                    <input id="@GetSkillBonusId(skill.Name)" type="number" @bind="skill.Bonus" class="form-control form-control-sm skill-bonus" />
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+                @if (GetUnmappedSkills().Count > 0)
+                {
+                    <section class="skill-group">
+                        <div class="skill-group-title">Outras</div>
+                        <div class="skill-group-list">
+                            @foreach (var skill in GetUnmappedSkills())
+                            {
+                                <div class="skill-row">
+                                    <label class="skill-name" for="@GetSkillBonusId(skill.Name)">@skill.Name</label>
+                                    <label class="skill-trained form-check" title="Treinada">
+                                        <input class="form-check-input" type="checkbox" aria-label="@($"{skill.Name} treinada")" @bind="skill.Trained" />
+                                    </label>
+                                    <input id="@GetSkillBonusId(skill.Name)" type="number" @bind="skill.Bonus" class="form-control form-control-sm skill-bonus" />
+                                </div>
+                            }
+                        </div>
+                    </section>
                 }
             </div>
             break;
@@ -302,6 +340,7 @@ else
 
         classEntries = JsonSerializer.Deserialize<List<ClassEntry>>(character.Classes) ?? [];
         skillEntries = JsonSerializer.Deserialize<List<SkillEntry>>(character.Skills) ?? [];
+        EnsureReferenceSkills();
         abilityEntries = JsonSerializer.Deserialize<List<AbilityEntry>>(character.Abilities) ?? [];
         spellEntries = JsonSerializer.Deserialize<List<SpellEntry>>(character.Spells) ?? [];
         equipmentEntries = JsonSerializer.Deserialize<List<EquipmentEntry>>(character.Equipment) ?? [];
@@ -320,4 +359,34 @@ else
         await CharacterService.UpdateCharacterAsync(CharacterId, userId, character);
         saved = true;
     }
+
+    private void EnsureReferenceSkills()
+    {
+        foreach (var definition in T20Reference.SkillDefinitions)
+        {
+            if (!skillEntries.Any(skill => skill.Name == definition.Name))
+            {
+                skillEntries.Add(new SkillEntry { Name = definition.Name });
+            }
+        }
+    }
+
+    private SkillEntry GetSkillEntry(string name)
+    {
+        var entry = skillEntries.FirstOrDefault(skill => skill.Name == name);
+        if (entry is not null) return entry;
+
+        entry = new SkillEntry { Name = name };
+        skillEntries.Add(entry);
+        return entry;
+    }
+
+    private List<SkillEntry> GetUnmappedSkills()
+    {
+        var referenceNames = T20Reference.Skills.ToHashSet(StringComparer.Ordinal);
+        return skillEntries.Where(skill => !referenceNames.Contains(skill.Name)).ToList();
+    }
+
+    private static string GetSkillBonusId(string skillName)
+        => $"skill-bonus-{skillName.ToLowerInvariant()}";
 }
