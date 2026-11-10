@@ -6,7 +6,7 @@
 
 <p align="center">
   Plataforma web para mestres de <strong>Tormenta 20</strong> gerenciarem campanhas, fichas e combates —
-  com uma IA consultora de regras que consulta o livro básico via RAG.
+  com uma IA de regras que consulta o livro básico via RAG.
 </p>
 
 <p align="center">
