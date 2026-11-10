@@ -6,7 +6,11 @@
 
 <p align="center">
   Plataforma web para mestres de <strong>Tormenta 20</strong> gerenciarem campanhas, fichas e combates —
-  com uma IA consultora de regras treinada no livro básico via RAG.
+  com uma IA consultora de regras que consulta o livro básico via RAG.
+</p>
+
+<p align="center">
+  <strong>Status:</strong> pausado — usado em uma sessão real com amigos.
 </p>
 
 ---
@@ -152,3 +156,9 @@ T20Master/
   `GeminiChatService` chamam a API REST do Gemini diretamente via `HttpClient`.
 - **Embeddings sem índice vetorial**: `gemini-embedding-001` gera vetores de 3072 dimensões, acima do limite
   do HNSW/IVFFlat do pgvector (2000). A busca é sequencial — suficiente para o volume de um único livro.
+
+## Aviso
+
+Tormenta 20 é propriedade da Jambô Editora. Este é um projeto pessoal de estudo, não oficial e sem vínculo
+com a editora. O repositório não inclui conteúdo do livro: para usar o chat de regras, cada pessoa precisa
+indexar o seu próprio exemplar, adquirido legalmente.
